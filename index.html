@@ -1372,7 +1372,7 @@ if ('serviceWorker' in navigator) {
 <div id="auth-screen" style="display:none;position:fixed;inset:0;background:var(--bg0);z-index:9999;overflow-y:auto">
 
   <!-- VUE LOGIN -->
-  <div id="auth-login-view" style="min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div id="auth-login-view" style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
     <div style="width:100%;max-width:360px">
       <div style="font-size:26px;font-weight:700;color:var(--txt);margin-bottom:4px">Nomade 7</div>
       <div style="font-size:14px;color:var(--txt2);margin-bottom:32px">Gestion de chantier</div>
@@ -1397,7 +1397,7 @@ if ('serviceWorker' in navigator) {
   </div>
 
   <!-- VUE INSCRIPTION -->
-  <div id="auth-signup-view" style="display:none;padding:24px;max-width:400px;margin:0 auto">
+  <div id="auth-signup-view" style="display:none;padding:24px;max-width:400px;margin:0 auto;min-height:100vh;box-sizing:border-box">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;padding-top:12px">
       <button onclick="switchToLogin()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--txt2);padding:0;display:flex"><i class="ti ti-arrow-left"></i></button>
       <div>
