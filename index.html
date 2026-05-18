@@ -1282,19 +1282,59 @@ async function authLogin() {
 }
 async function authSignup() {
   if (!db) return;
-  const email = document.getElementById('auth-email').value.trim();
-  const pass  = document.getElementById('auth-pass').value;
-  if (!email || !pass) return showAuthMsg('Email et mot de passe requis.');
-  if (pass.length < 6) return showAuthMsg('Mot de passe min. 6 caractères.');
-  const { error } = await db.auth.signUp({ email, password: pass });
-  if (error) return showAuthMsg(error.message);
-  showAuthMsg('Compte créé ! Vérifiez votre email si demandé, puis connectez-vous.', true);
+  const prenom = document.getElementById('su-prenom').value.trim();
+  const nom    = document.getElementById('su-nom').value.trim();
+  const email  = document.getElementById('su-email').value.trim();
+  const tel    = document.getElementById('su-tel').value.trim();
+  const role   = document.getElementById('su-role').value;
+  const metier = document.getElementById('su-metier').value;
+  const pass   = document.getElementById('su-pass').value;
+  const pass2  = document.getElementById('su-pass2').value;
+  if (!prenom || !nom || !email || !pass) return showAuthMsg2('Tous les champs obligatoires (*) doivent être remplis.');
+  if (pass.length < 6) return showAuthMsg2('Mot de passe min. 6 caractères.');
+  if (pass !== pass2) return showAuthMsg2('Les mots de passe ne correspondent pas.');
+  const fullName = `${prenom} ${nom}`;
+  const ini = (prenom[0]+(nom[0]||'')).toUpperCase();
+  const av = ['p','b','c','g','a'][contacts.length % 5];
+  const { data, error } = await db.auth.signUp({ email, password: pass, options: { data: { full_name: fullName } } });
+  if (error) return showAuthMsg2(error.message);
+  // Ajouter aux contacts locaux et Supabase
+  const newContact = { id: Math.max(0,...contacts.map(c=>c.id))+1, name: fullName, ini, role, metier: metier||'', phone: tel, av };
+  contacts.push(newContact);
+  saveAll();
+  showAuthMsg2('Compte créé avec succès ! Connexion en cours…', true);
+  setTimeout(() => {
+    document.getElementById('auth-email').value = email;
+    document.getElementById('auth-pass').value = pass;
+    switchToLogin();
+    authLogin();
+  }, 1200);
 }
 function togglePassVis() {
   const inp = document.getElementById('auth-pass');
   const icon = document.getElementById('auth-eye-icon');
   if (inp.type === 'password') { inp.type = 'text'; icon.className = 'ti ti-eye-off'; }
   else { inp.type = 'password'; icon.className = 'ti ti-eye'; }
+}
+function toggleSuPass() {
+  const inp = document.getElementById('su-pass');
+  const icon = document.getElementById('su-eye-icon');
+  if (inp.type === 'password') { inp.type = 'text'; icon.className = 'ti ti-eye-off'; }
+  else { inp.type = 'password'; icon.className = 'ti ti-eye'; }
+}
+function switchToSignup() {
+  document.getElementById('auth-login-view').style.display = 'none';
+  document.getElementById('auth-signup-view').style.display = 'block';
+  document.getElementById('su-metier').innerHTML = '<option value="">— Choisir —</option>' + METIERS.map(m=>`<option value="${m}">${m}</option>`).join('');
+}
+function switchToLogin() {
+  document.getElementById('auth-signup-view').style.display = 'none';
+  document.getElementById('auth-login-view').style.display = 'flex';
+}
+function showAuthMsg2(msg, ok) {
+  const el = document.getElementById('auth-msg2');
+  el.textContent = msg;
+  el.style.cssText = `display:block;padding:9px 12px;border-radius:8px;font-size:13px;background:${ok?'#EAF3DE':'#FCEBEB'};color:${ok?'#27500A':'#791F1F'}`;
 }
 async function authReset() {
   if (!db) return;
@@ -1328,29 +1368,90 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 
-<!-- ÉCRAN DE LOGIN -->
-<div id="auth-screen" style="display:none;position:fixed;inset:0;background:var(--bg0);z-index:9999;align-items:center;justify-content:center;padding:24px">
-  <div style="width:100%;max-width:360px">
-    <div style="font-size:26px;font-weight:700;color:var(--txt);margin-bottom:4px">Nomade 7</div>
-    <div style="font-size:14px;color:var(--txt2);margin-bottom:32px">Gestion de chantier</div>
-    <div id="auth-msg" style="display:none"></div>
-    <div style="margin-bottom:12px">
-      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Email</label>
-      <input type="email" id="auth-email" placeholder="votre@email.com" style="width:100%;padding:11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+<!-- ÉCRAN AUTH -->
+<div id="auth-screen" style="display:none;position:fixed;inset:0;background:var(--bg0);z-index:9999;overflow-y:auto">
+
+  <!-- VUE LOGIN -->
+  <div id="auth-login-view" style="min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div style="width:100%;max-width:360px">
+      <div style="font-size:26px;font-weight:700;color:var(--txt);margin-bottom:4px">Nomade 7</div>
+      <div style="font-size:14px;color:var(--txt2);margin-bottom:32px">Gestion de chantier</div>
+      <div id="auth-msg" style="display:none"></div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Email</label>
+        <input type="email" id="auth-email" placeholder="votre@email.com" style="width:100%;padding:11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:8px">
+        <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Mot de passe</label>
+        <div style="position:relative">
+          <input type="password" id="auth-pass" placeholder="••••••••" style="width:100%;padding:11px 44px 11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+          <button onclick="togglePassVis()" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--txt2);font-size:17px;padding:0;display:flex"><i class="ti ti-eye" id="auth-eye-icon"></i></button>
+        </div>
+      </div>
+      <div style="text-align:right;margin-bottom:20px">
+        <button onclick="authReset()" type="button" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--txt2);font-family:inherit;padding:0">Mot de passe oublié ?</button>
+      </div>
+      <button onclick="authLogin()" style="width:100%;padding:13px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;font-family:inherit">Se connecter</button>
+      <button onclick="switchToSignup()" type="button" style="width:100%;padding:11px;border-radius:12px;background:transparent;color:var(--txt2);border:.5px solid var(--border2);font-size:14px;cursor:pointer;font-family:inherit">Créer un compte</button>
     </div>
-    <div style="margin-bottom:8px">
-      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Mot de passe</label>
-      <div style="position:relative">
-        <input type="password" id="auth-pass" placeholder="••••••••" style="width:100%;padding:11px 44px 11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
-        <button onclick="togglePassVis()" type="button" id="auth-eye" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--txt2);font-size:17px;padding:0;display:flex"><i class="ti ti-eye" id="auth-eye-icon"></i></button>
+  </div>
+
+  <!-- VUE INSCRIPTION -->
+  <div id="auth-signup-view" style="display:none;padding:24px;max-width:400px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;padding-top:12px">
+      <button onclick="switchToLogin()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--txt2);padding:0;display:flex"><i class="ti ti-arrow-left"></i></button>
+      <div>
+        <div style="font-size:18px;font-weight:700;color:var(--txt)">Créer un compte</div>
+        <div style="font-size:12px;color:var(--txt2)">Nomade 7 — Gestion de chantier</div>
       </div>
     </div>
-    <div style="text-align:right;margin-bottom:18px">
-      <button onclick="authReset()" type="button" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--txt2);font-family:inherit;padding:0">Mot de passe oublié ?</button>
+    <div id="auth-msg2" style="display:none;margin-bottom:12px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div>
+        <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Prénom *</label>
+        <input type="text" id="su-prenom" placeholder="Damien" style="width:100%;padding:10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Nom *</label>
+        <input type="text" id="su-nom" placeholder="Dupont" style="width:100%;padding:10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+      </div>
     </div>
-    <button onclick="authLogin()" style="width:100%;padding:13px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;font-family:inherit">Se connecter</button>
-    <button onclick="authSignup()" style="width:100%;padding:11px;border-radius:12px;background:transparent;color:var(--txt2);border:.5px solid var(--border2);font-size:14px;cursor:pointer;font-family:inherit">Créer un compte</button>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Email *</label>
+      <input type="email" id="su-email" placeholder="votre@email.com" style="width:100%;padding:10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Téléphone</label>
+      <input type="tel" id="su-tel" placeholder="06 00 00 00 00" style="width:100%;padding:10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Rôle *</label>
+      <select id="su-role" style="width:100%;padding:10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+        <option value="worker">Intervenant</option>
+        <option value="resp">Responsable</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Métier</label>
+      <select id="su-metier" style="width:100%;padding:10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+        <option value="">— Choisir —</option>
+      </select>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Mot de passe * <span style="color:var(--txt3)">(min. 6 caractères)</span></label>
+      <div style="position:relative">
+        <input type="password" id="su-pass" placeholder="••••••••" style="width:100%;padding:10px 44px 10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+        <button onclick="toggleSuPass()" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--txt2);font-size:17px;padding:0;display:flex"><i class="ti ti-eye" id="su-eye-icon"></i></button>
+      </div>
+    </div>
+    <div style="margin-bottom:24px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Confirmer le mot de passe *</label>
+      <input type="password" id="su-pass2" placeholder="••••••••" style="width:100%;padding:10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+    </div>
+    <button onclick="authSignup()" style="width:100%;padding:13px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:24px">Créer mon compte</button>
   </div>
+
 </div>
 </body>
 </html>
