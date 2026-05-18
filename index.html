@@ -1004,6 +1004,10 @@ function rSettings(){
         <div class="fg" style="margin:0"><label>Fin</label><input type="time" value="18:00" style="width:100%"></div>
       </div>
       <p style="font-size:12px;color:var(--txt3);margin-top:6px">Notifications uniquement dans cette plage horaire.</p>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Compte</div>
+      <button onclick="authLogout()" style="width:100%;padding:12px;border-radius:12px;background:var(--red-bg);color:var(--red-c);border:.5px solid var(--red-bd);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-logout"></i> Se déconnecter</button>
     </div>`;
 }
 function addMet(){const v=document.getElementById('new-met-inp').value.trim();if(!v)return;METIERS.push(v);rSettings();}
@@ -1258,11 +1262,75 @@ function saveAll() {
 })();
 
 rStats();rTasks();rMetiers();rProjets();rCal();rAgDay(selDay);rEmails();rContacts();rGantt();
-fetchFromSupabase();
+
+// ── AUTH ───────────────────────────────────────────────────────────────────
+function showAuthMsg(msg, ok) {
+  const el = document.getElementById('auth-msg');
+  el.textContent = msg;
+  el.style.cssText = `display:block;padding:9px 12px;border-radius:8px;font-size:13px;margin-bottom:12px;background:${ok?'#EAF3DE':'#FCEBEB'};color:${ok?'#27500A':'#791F1F'}`;
+}
+function showApp() { document.getElementById('auth-screen').style.display = 'none'; fetchFromSupabase(); }
+function showLogin() { document.getElementById('auth-screen').style.display = 'flex'; }
+
+async function authLogin() {
+  if (!db) return;
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  if (!email || !pass) return showAuthMsg('Email et mot de passe requis.');
+  const { error } = await db.auth.signInWithPassword({ email, password: pass });
+  if (error) return showAuthMsg(error.message);
+}
+async function authSignup() {
+  if (!db) return;
+  const email = document.getElementById('auth-email').value.trim();
+  const pass  = document.getElementById('auth-pass').value;
+  if (!email || !pass) return showAuthMsg('Email et mot de passe requis.');
+  if (pass.length < 6) return showAuthMsg('Mot de passe min. 6 caractères.');
+  const { error } = await db.auth.signUp({ email, password: pass });
+  if (error) return showAuthMsg(error.message);
+  showAuthMsg('Compte créé ! Vérifiez votre email si demandé, puis connectez-vous.', true);
+}
+async function authLogout() {
+  if (db) await db.auth.signOut();
+  showLogin();
+}
+
+// Écoute les changements d'état de connexion
+if (db) {
+  db.auth.onAuthStateChange((event, session) => {
+    if (session) showApp(); else showLogin();
+  });
+  // Vérification initiale
+  db.auth.getSession().then(({ data: { session } }) => {
+    if (!session) showLogin();
+    else showApp();
+  });
+} else {
+  fetchFromSupabase();
+}
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 </script>
+
+<!-- ÉCRAN DE LOGIN -->
+<div id="auth-screen" style="display:none;position:fixed;inset:0;background:var(--bg0);z-index:9999;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px">
+    <div style="font-size:26px;font-weight:700;color:var(--txt);margin-bottom:4px">Nomade 7</div>
+    <div style="font-size:14px;color:var(--txt2);margin-bottom:32px">Gestion de chantier</div>
+    <div id="auth-msg" style="display:none"></div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Email</label>
+      <input type="email" id="auth-email" placeholder="votre@email.com" style="width:100%;padding:11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:20px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Mot de passe</label>
+      <input type="password" id="auth-pass" placeholder="••••••••" style="width:100%;padding:11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+    </div>
+    <button onclick="authLogin()" style="width:100%;padding:13px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;font-family:inherit">Se connecter</button>
+    <button onclick="authSignup()" style="width:100%;padding:11px;border-radius:12px;background:transparent;color:var(--txt2);border:.5px solid var(--border2);font-size:14px;cursor:pointer;font-family:inherit">Créer un compte</button>
+  </div>
+</div>
 </body>
 </html>
