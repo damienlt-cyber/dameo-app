@@ -654,9 +654,9 @@ function openTD(id){
     <div class="ds"><h4>Partager</h4><div style="display:flex;gap:7px"><button class="shr-btn" onclick="shrTask()"><i class="ti ti-share" aria-hidden="true"></i> Partager</button><button class="shr-btn" onclick="navigator.clipboard.writeText('nomade7.app/t/${id}').then(()=>alert('Lien copié'))"><i class="ti ti-link" aria-hidden="true"></i> Lien</button></div></div>
   `;go('sc-td');
 }
-function chStat(s){const t=tasks.find(x=>x.id===curTid);if(!t)return;t.statut=s;const ss=SS;document.querySelectorAll('.sc').forEach(b=>{const bs=b.textContent.trim();if(bs===s){b.style.background=ss[s].bg;b.style.color=ss[s].c;b.style.borderColor=ss[s].bd;b.style.fontWeight='600';}else{b.style.background='var(--bg0)';b.style.color='var(--txt2)';b.style.borderColor='var(--border2)';b.style.fontWeight='400';}});rStats();}
-function svNote(){const t=tasks.find(x=>x.id===curTid);if(t)t.notes=document.getElementById('d-notes').value;alert('Note enregistrée.');}
-function addPh(e){const t=tasks.find(x=>x.id===curTid);if(!t)return;Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{t.photos.push(ev.target.result);openTD(curTid);};r.readAsDataURL(f);});}
+function chStat(s){const t=tasks.find(x=>x.id===curTid);if(!t)return;t.statut=s;saveAll();const ss=SS;document.querySelectorAll('.sc').forEach(b=>{const bs=b.textContent.trim();if(bs===s){b.style.background=ss[s].bg;b.style.color=ss[s].c;b.style.borderColor=ss[s].bd;b.style.fontWeight='600';}else{b.style.background='var(--bg0)';b.style.color='var(--txt2)';b.style.borderColor='var(--border2)';b.style.fontWeight='400';}});rStats();}
+function svNote(){const t=tasks.find(x=>x.id===curTid);if(t){t.notes=document.getElementById('d-notes').value;saveAll();}alert('Note enregistrée.');}
+function addPh(e){const t=tasks.find(x=>x.id===curTid);if(!t)return;Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{t.photos.push(ev.target.result);saveAll();openTD(curTid);};r.readAsDataURL(f);});}
 function vPhoto(src){const ov=document.createElement('div');ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center';ov.innerHTML=`<img src="${src}" style="max-width:100%;max-height:100%;object-fit:contain">`;ov.onclick=()=>document.body.removeChild(ov);document.body.appendChild(ov);}
 function shrTask(){const t=tasks.find(x=>x.id===curTid);if(!t)return;const u=contacts.find(c=>c.id===t.assignee);const txt=`[Nomade 7] ${t.zone} — ${t.name}\nStatut: ${t.statut} | Prio: ${t.prio}${t.deadline?` | Échéance: ${fd(t.deadline)}`:''}${u?` | Assigné: ${u.name}`:''}`;if(navigator.share)navigator.share({title:'Nomade 7',text:txt});else navigator.clipboard.writeText(txt).then(()=>alert('Copié'));}
 
@@ -677,7 +677,7 @@ function addTask(){
   if(!n)return alert('Nom requis');if(p==='▲ Haute'&&!dl)return alert('Date limite obligatoire pour haute priorité');
   const aid=document.getElementById('nt-a').value;
   tasks.push({id:nTid++,zone:document.getElementById('nt-z').value,name:n,statut:statNew,prio:p,notes:document.getElementById('nt-no').value,deadline:dl||null,metier:document.getElementById('nt-m').value||null,assignee:aid?parseInt(aid):null,photos:[]});
-  closeModal('m-task');rStats();rTasks();rMetiers();
+  closeModal('m-task');rStats();rTasks();rMetiers();saveAll();
 }
 
 // ── QUICK INPUT ──────────────────────────────────────────────────────────────
@@ -698,7 +698,7 @@ function parseQ(){
   pv.innerHTML=`<strong>Zone :</strong> ${parsedQ.zone}<br><strong>Métier :</strong> ${parsedQ.metier||'—'}<br><strong>Priorité :</strong> ${parsedQ.prio}<br><strong>Assigné :</strong> ${du?du.name:'Non assigné'}`;
   const btn=document.getElementById('q-ok');btn.style.opacity='1';btn.style.pointerEvents='auto';
 }
-function confirmQ(){if(!parsedQ)return;tasks.push({...parsedQ,id:nTid++});document.getElementById('q-text').value='';document.getElementById('q-prev').style.display='none';document.querySelectorAll('#q-met .tag,#q-zone .tag').forEach(t=>t.classList.remove('on'));qMet=null;qZone=null;parsedQ=null;const btn=document.getElementById('q-ok');btn.style.opacity='.4';btn.style.pointerEvents='none';rStats();rTasks();rMetiers();setJTab('tasks',document.querySelectorAll('.tabs .tab')[0]);}
+function confirmQ(){if(!parsedQ)return;tasks.push({...parsedQ,id:nTid++});saveAll();document.getElementById('q-text').value='';document.getElementById('q-prev').style.display='none';document.querySelectorAll('#q-met .tag,#q-zone .tag').forEach(t=>t.classList.remove('on'));qMet=null;qZone=null;parsedQ=null;const btn=document.getElementById('q-ok');btn.style.opacity='.4';btn.style.pointerEvents='none';rStats();rTasks();rMetiers();setJTab('tasks',document.querySelectorAll('.tabs .tab')[0]);}
 function toggleVoice(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return alert('Speech Recognition : Chrome/Safari mobile requis.');
   if(voiceOn){if(voiceRecog)voiceRecog.stop();voiceOn=false;document.getElementById('q-mic').classList.remove('mic-on');return;}
@@ -745,7 +745,7 @@ function addEvent(){
   const t=document.getElementById('ne-t').value.trim();const d=document.getElementById('ne-d').value;if(!t||!d)return;
   const aid=document.getElementById('ne-a').value;
   events.push({id:nEid++,title:t,date:d,type:document.getElementById('ne-ty').value,notes:document.getElementById('ne-no').value,assignee:aid?parseInt(aid):null});
-  closeModal('m-event');rCal();rAgDay(selDay);
+  closeModal('m-event');rCal();rAgDay(selDay);saveAll();
 }
 
 // ── EMAILS ──────────────────────────────────────────────────────────────────
@@ -771,7 +771,7 @@ function openEmail(id){
     </div>`;
   go('sc-ed');rEmails();
 }
-function archiveEmail(id){const em=emails.find(e=>e.id===id);if(em)em.done=true;go('sc-emails');rEmails();}
+function archiveEmail(id){const em=emails.find(e=>e.id===id);if(em)em.done=true;saveAll();go('sc-emails');rEmails();}
 
 const EMAIL_DEMOS = {
   1:{resume:'Expédition presse-étoupes VE-332 ×12 confirmée. Livraison vendredi 16 mai avant 12h via Chronopost.',elements:[{type:'evenement',titre:'Livraison presse-étoupes Vetus VE-332 ×12',zone:null,metier:null,assignee:null,priorite:'▲ Haute',date:'2026-05-16',notes:'Chronopost CP94821'},{type:'tache',titre:'Réceptionner et stocker presse-étoupes',zone:'Moteur',metier:'Préparateur général',assignee:'Sophie',priorite:'● Normale',date:'2026-05-16',notes:'12 pièces'}]},
@@ -1114,7 +1114,7 @@ function saveAvancement() {
   const note = document.getElementById('av-note').value.trim();
   p.avancement = newAv; p.statut = newSt;
   if (note || newAv !== p.avancement) p.updates.push({ date: isoD(TODAY), note, av: newAv });
-  closeModal('m-avancement');
+  saveAll(); closeModal('m-avancement');
   openProjet(curPjId);
 }
 
@@ -1175,13 +1175,45 @@ function saveProjet() {
     closeModal('m-projet');
     rProjets();
   }
+  saveAll();
 }
 function deleteProjet(id) {
   if (!confirm('Supprimer ce projet ?')) return;
   projets = projets.filter(p => p.id !== id);
-  go('sc-projets'); rProjets();
+  saveAll(); go('sc-projets'); rProjets();
 }
 
+
+// ── PERSISTANCE localStorage ───────────────────────────────────────────────
+function saveAll() {
+  try {
+    localStorage.setItem('n7_tasks',    JSON.stringify(tasks));
+    localStorage.setItem('n7_contacts', JSON.stringify(contacts));
+    localStorage.setItem('n7_events',   JSON.stringify(events));
+    localStorage.setItem('n7_emails',   JSON.stringify(emails));
+    localStorage.setItem('n7_projets',  JSON.stringify(projets));
+    localStorage.setItem('n7_meetings', JSON.stringify(meetings));
+    localStorage.setItem('n7_METIERS',  JSON.stringify(METIERS));
+    localStorage.setItem('n7_nTid',  nTid);
+    localStorage.setItem('n7_nEid',  nEid);
+    localStorage.setItem('n7_nPjId', nPjId);
+  } catch(e) {}
+}
+
+(function loadStorage() {
+  try {
+    const t = localStorage.getItem('n7_tasks');    if (t) { tasks.length=0; JSON.parse(t).forEach(x=>tasks.push(x)); }
+    const c = localStorage.getItem('n7_contacts'); if (c) { contacts.length=0; JSON.parse(c).forEach(x=>contacts.push(x)); }
+    const ev= localStorage.getItem('n7_events');   if (ev){ events.length=0; JSON.parse(ev).forEach(x=>events.push(x)); }
+    const em= localStorage.getItem('n7_emails');   if (em){ emails.length=0; JSON.parse(em).forEach(x=>emails.push(x)); }
+    const pj= localStorage.getItem('n7_projets');  if (pj){ projets.length=0; JSON.parse(pj).forEach(x=>projets.push(x)); }
+    const mt= localStorage.getItem('n7_meetings'); if (mt){ meetings.length=0; JSON.parse(mt).forEach(x=>meetings.push(x)); }
+    const me= localStorage.getItem('n7_METIERS');  if (me){ METIERS.length=0; JSON.parse(me).forEach(x=>METIERS.push(x)); }
+    if (localStorage.getItem('n7_nTid'))  nTid  = parseInt(localStorage.getItem('n7_nTid'));
+    if (localStorage.getItem('n7_nEid'))  nEid  = parseInt(localStorage.getItem('n7_nEid'));
+    if (localStorage.getItem('n7_nPjId')) nPjId = parseInt(localStorage.getItem('n7_nPjId'));
+  } catch(e) {}
+})();
 
 rStats();rTasks();rMetiers();rProjets();rCal();rAgDay(selDay);rEmails();rContacts();rGantt();
 
