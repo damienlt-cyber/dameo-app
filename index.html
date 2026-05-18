@@ -1290,6 +1290,20 @@ async function authSignup() {
   if (error) return showAuthMsg(error.message);
   showAuthMsg('Compte créé ! Vérifiez votre email si demandé, puis connectez-vous.', true);
 }
+function togglePassVis() {
+  const inp = document.getElementById('auth-pass');
+  const icon = document.getElementById('auth-eye-icon');
+  if (inp.type === 'password') { inp.type = 'text'; icon.className = 'ti ti-eye-off'; }
+  else { inp.type = 'password'; icon.className = 'ti ti-eye'; }
+}
+async function authReset() {
+  if (!db) return;
+  const email = document.getElementById('auth-email').value.trim();
+  if (!email) return showAuthMsg('Entrez votre email d\'abord.');
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+  if (error) return showAuthMsg(error.message);
+  showAuthMsg('Email de réinitialisation envoyé !', true);
+}
 async function authLogout() {
   if (db) await db.auth.signOut();
   showLogin();
@@ -1324,9 +1338,15 @@ if ('serviceWorker' in navigator) {
       <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Email</label>
       <input type="email" id="auth-email" placeholder="votre@email.com" style="width:100%;padding:11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
     </div>
-    <div style="margin-bottom:20px">
+    <div style="margin-bottom:8px">
       <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Mot de passe</label>
-      <input type="password" id="auth-pass" placeholder="••••••••" style="width:100%;padding:11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+      <div style="position:relative">
+        <input type="password" id="auth-pass" placeholder="••••••••" style="width:100%;padding:11px 44px 11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+        <button onclick="togglePassVis()" type="button" id="auth-eye" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--txt2);font-size:17px;padding:0;display:flex"><i class="ti ti-eye" id="auth-eye-icon"></i></button>
+      </div>
+    </div>
+    <div style="text-align:right;margin-bottom:18px">
+      <button onclick="authReset()" type="button" style="background:none;border:none;cursor:pointer;font-size:12px;color:var(--txt2);font-family:inherit;padding:0">Mot de passe oublié ?</button>
     </div>
     <button onclick="authLogin()" style="width:100%;padding:13px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;font-family:inherit">Se connecter</button>
     <button onclick="authSignup()" style="width:100%;padding:11px;border-radius:12px;background:transparent;color:var(--txt2);border:.5px solid var(--border2);font-size:14px;cursor:pointer;font-family:inherit">Créer un compte</button>
