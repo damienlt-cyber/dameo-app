@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Nomade 7">
 <link rel="manifest" href="/manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css">
 <style>
@@ -493,6 +494,46 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </style>
 
 <script>
+// ── SUPABASE ───────────────────────────────────────────────────────────────
+const SUPA_URL = 'https://owkavqtcmrenazfatbny.supabase.co';
+const SUPA_KEY = 'sb_publishable_Be9GQTw4P11y6xGUnYYZHA_hDZKqwPf';
+const db = (window.supabase) ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
+
+async function syncToSupabase() {
+  if (!db) return;
+  try {
+    await db.from('tasks').upsert(tasks.map(t=>({id:t.id,zone:t.zone,name:t.name,statut:t.statut,prio:t.prio,notes:t.notes||'',deadline:t.deadline||null,metier:t.metier||null,assignee:t.assignee||null,photos:t.photos||[]})));
+    await db.from('contacts').upsert(contacts.map(c=>({id:c.id,name:c.name,ini:c.ini,role:c.role,metier:c.metier,phone:c.phone,av:c.av})));
+    await db.from('events').upsert(events.map(e=>({id:e.id,title:e.title,date:e.date,type:e.type,notes:e.notes||'',assignee:e.assignee||null})));
+    await db.from('emails').upsert(emails.map(e=>({id:e.id,from_name:e.from,subject:e.subject,date:e.date,prev:e.prev,body:e.body,unread:e.unread,done:e.done})));
+    await db.from('projets').upsert(projets.map(p=>({id:p.id,nom:p.nom,type:p.type,client:p.client||'',resp:p.resp||null,statut:p.statut,avancement:p.avancement,budget:p.budget||null,date_debut:p.dateDebut||null,date_fin:p.dateFin||null,notes:p.notes||'',updates:p.updates||[]})));
+    await db.from('metiers').upsert(METIERS.map((m,i)=>({id:i+1,name:m})),{onConflict:'name'});
+  } catch(e) { console.warn('Supabase sync:', e.message); }
+}
+
+async function fetchFromSupabase() {
+  if (!db) return;
+  try {
+    const [tr,cr,er,emr,pjr,mr] = await Promise.all([
+      db.from('tasks').select('*').order('id'),
+      db.from('contacts').select('*').order('id'),
+      db.from('events').select('*').order('id'),
+      db.from('emails').select('*').order('id'),
+      db.from('projets').select('*').order('id'),
+      db.from('metiers').select('*').order('id'),
+    ]);
+    let updated = false;
+    if (tr.data?.length)  { tasks.length=0;    tr.data.forEach(t=>tasks.push({...t,photos:t.photos||[]}));  nTid=Math.max(...tasks.map(t=>t.id))+1; updated=true; }
+    else if (tasks.length) syncToSupabase();
+    if (cr.data?.length)  { contacts.length=0;  cr.data.forEach(x=>contacts.push(x)); }
+    if (er.data?.length)  { events.length=0;    er.data.forEach(x=>events.push(x));   nEid=Math.max(...events.map(e=>e.id))+1; }
+    if (emr.data?.length) { emails.length=0;    emr.data.forEach(x=>emails.push({...x,from:x.from_name})); }
+    if (pjr.data?.length) { projets.length=0;   pjr.data.forEach(x=>projets.push({...x,dateDebut:x.date_debut,dateFin:x.date_fin,updates:x.updates||[]})); nPjId=Math.max(...projets.map(p=>p.id))+1; }
+    if (mr.data?.length)  { METIERS.length=0;   mr.data.forEach(x=>METIERS.push(x.name)); }
+    if (updated) { rStats();rTasks();rMetiers();rProjets();rCal();rAgDay(selDay);rEmails();rContacts(); }
+  } catch(e) { console.warn('Supabase fetch:', e.message); }
+}
+
 // ── DATA ──────────────────────────────────────────────────────────────────
 const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 const ZONES = ["Zone Tech Babord","Cab. Capitaine","Accès arrière Bab.","Pont N1","Pont N2","Coffre arrière","Salon","Batterie Salon","Mât","Sail Locker","Cab. Honore","Salon Avant","Cuisine","Zone Moteur Dessus","Moteur","Pont Arrière","Commande IT","Autres"];
@@ -1186,6 +1227,7 @@ function deleteProjet(id) {
 
 // ── PERSISTANCE localStorage ───────────────────────────────────────────────
 function saveAll() {
+  syncToSupabase();
   try {
     localStorage.setItem('n7_tasks',    JSON.stringify(tasks));
     localStorage.setItem('n7_contacts', JSON.stringify(contacts));
@@ -1216,6 +1258,7 @@ function saveAll() {
 })();
 
 rStats();rTasks();rMetiers();rProjets();rCal();rAgDay(selDay);rEmails();rContacts();rGantt();
+fetchFromSupabase();
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
