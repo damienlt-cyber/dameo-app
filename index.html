@@ -1377,17 +1377,16 @@ if (db) {
     if (event === 'PASSWORD_RECOVERY') {
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('reset-screen').style.display = 'flex';
-    } else if (session) {
+    } else if (event === 'SIGNED_OUT') {
       document.getElementById('reset-screen').style.display = 'none';
+      showLogin();
+    } else if (session) {
+      // Ne pas écraser l'écran de reset si déjà affiché
+      if (document.getElementById('reset-screen').style.display === 'flex') return;
       showApp();
     } else {
       showLogin();
     }
-  });
-  // Vérification initiale
-  db.auth.getSession().then(({ data: { session } }) => {
-    if (!session) showLogin();
-    else showApp();
   });
 } else {
   fetchFromSupabase();
