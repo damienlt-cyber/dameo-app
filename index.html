@@ -1349,10 +1349,40 @@ async function authLogout() {
   showLogin();
 }
 
+function toggleResetPass() {
+  const inp = document.getElementById('reset-pass');
+  const icon = document.getElementById('reset-eye-icon');
+  if (inp.type === 'password') { inp.type = 'text'; icon.className = 'ti ti-eye-off'; }
+  else { inp.type = 'password'; icon.className = 'ti ti-eye'; }
+}
+function showResetMsg(msg, ok) {
+  const el = document.getElementById('reset-msg');
+  el.textContent = msg;
+  el.style.cssText = `display:block;padding:9px 12px;border-radius:8px;font-size:13px;background:${ok?'#EAF3DE':'#FCEBEB'};color:${ok?'#27500A':'#791F1F'}`;
+}
+async function doReset() {
+  const p1 = document.getElementById('reset-pass').value;
+  const p2 = document.getElementById('reset-pass2').value;
+  if (!p1 || p1.length < 6) return showResetMsg('Mot de passe min. 6 caractères.');
+  if (p1 !== p2) return showResetMsg('Les mots de passe ne correspondent pas.');
+  const { error } = await db.auth.updateUser({ password: p1 });
+  if (error) return showResetMsg(error.message);
+  showResetMsg('Mot de passe mis à jour ! Redirection…', true);
+  setTimeout(() => { document.getElementById('reset-screen').style.display = 'none'; showApp(); }, 1500);
+}
+
 // Écoute les changements d'état de connexion
 if (db) {
   db.auth.onAuthStateChange((event, session) => {
-    if (session) showApp(); else showLogin();
+    if (event === 'PASSWORD_RECOVERY') {
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('reset-screen').style.display = 'flex';
+    } else if (session) {
+      document.getElementById('reset-screen').style.display = 'none';
+      showApp();
+    } else {
+      showLogin();
+    }
   });
   // Vérification initiale
   db.auth.getSession().then(({ data: { session } }) => {
@@ -1452,6 +1482,27 @@ if ('serviceWorker' in navigator) {
     <button onclick="authSignup()" style="width:100%;padding:13px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:24px">Créer mon compte</button>
   </div>
 
+</div>
+
+<!-- ÉCRAN RESET MOT DE PASSE -->
+<div id="reset-screen" style="display:none;position:fixed;inset:0;background:var(--bg0);z-index:9999;align-items:center;justify-content:center;padding:24px">
+  <div style="width:100%;max-width:360px">
+    <div style="font-size:20px;font-weight:700;color:var(--txt);margin-bottom:6px">Nouveau mot de passe</div>
+    <div style="font-size:13px;color:var(--txt2);margin-bottom:24px">Choisissez votre nouveau mot de passe.</div>
+    <div id="reset-msg" style="display:none;margin-bottom:12px"></div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Nouveau mot de passe *</label>
+      <div style="position:relative">
+        <input type="password" id="reset-pass" placeholder="••••••••" style="width:100%;padding:11px 44px 11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+        <button onclick="toggleResetPass()" type="button" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--txt2);font-size:17px;padding:0;display:flex"><i class="ti ti-eye" id="reset-eye-icon"></i></button>
+      </div>
+    </div>
+    <div style="margin-bottom:24px">
+      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Confirmer *</label>
+      <input type="password" id="reset-pass2" placeholder="••••••••" style="width:100%;padding:11px 14px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
+    </div>
+    <button onclick="doReset()" style="width:100%;padding:13px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit">Enregistrer le mot de passe</button>
+  </div>
 </div>
 </body>
 </html>
