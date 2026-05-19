@@ -12,11 +12,10 @@ Application web de gestion de chantier naval (Nomade 7), vanilla JS pur, fichier
 - **IA** : Claude API via proxy Supabase Edge Function (B4 à implémenter)
 - **Hébergement** : Vercel (déploiement via `vercel --prod` après `git push`)
 
-## Où on en est — Phase 2a terminée
-Voir SPECS.md section 5.1. Bugs B1 à B7 à corriger avant tout nouveau développement.
+## Où on en est — Phase 2b en cours
 
-| Bug | Statut |
-|-----|--------|
+| Élément | Statut |
+|---------|--------|
 | B1 — Modal m-task balise manquante | ✅ Corrigé |
 | B2 — saveAvancement() bug logique | ✅ Corrigé |
 | B3 — Photos base64 localStorage | ⬜ Phase 2.6 (Supabase Storage) |
@@ -25,6 +24,23 @@ Voir SPECS.md section 5.1. Bugs B1 à B7 à corriger avant tout nouveau dévelop
 | B5 — Gantt inaccessible nav | ✅ Corrigé (sidebar desktop) |
 | B6 — Notification bar hardcodée | ✅ Corrigé (données réelles) |
 | B7 — Meetings non sync Supabase | ✅ Corrigé (table créée + sync/fetch) |
+| **Phase 2b — Rôles & invitations** | ✅ Code JS prêt — SQL à exécuter dans Supabase |
+
+### Phase 2b — Tables à créer (SQL dans supabase/rls_phase2b.sql)
+- `user_profiles` (id, name, role, metier, phone, created_at)
+- `invitations` (id, token, role, created_by, used_by, created_at, expires_at)
+
+### Vars globales ajoutées
+- `curRole` / `curUserId` / `curUserName` — état de l'utilisateur connecté
+- `_inviteToken` / `_inviteRole` — détection lien d'invitation dans l'URL
+
+### Fonctions ajoutées
+- `loadUserProfile()` — charge profil après connexion, crée si absent (1er user = admin)
+- `applyRoleUI()` — badge rôle dans Settings
+- `genInvite(role)` — génère un lien d'invitation (admin only), copie dans presse-papiers
+- `rMembers()` — liste des membres depuis user_profiles
+- `updateMemberRole(userId, role)` — change le rôle d'un membre (admin only)
+- `showToast(msg)` — notification toast légère
 
 ## Déploiement
 ```
@@ -36,6 +52,6 @@ vercel --prod
 
 ## Supabase
 - URL : `https://owkavqtcmrenazfatbny.supabase.co`
-- Tables existantes : tasks, contacts, events, emails, projets, metiers
-- Table manquante : meetings (B7)
-- RLS : non activée (à faire en Phase 2a)
+- Tables existantes : tasks, contacts, events, emails, projets, metiers, meetings
+- Tables Phase 2b à créer : user_profiles, invitations (SQL dans supabase/rls_phase2b.sql)
+- RLS : activée sur toutes les tables (Phase 2a)

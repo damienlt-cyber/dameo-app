@@ -527,6 +527,13 @@ const SUPA_URL = 'https://owkavqtcmrenazfatbny.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93a2F2cXRjbXJlbmF6ZmF0Ym55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMzE1MTgsImV4cCI6MjA5NDcwNzUxOH0.eA6uvD6tnpdoBu07xDYndk66ZktDHfrNEWkUwI2rIcc';
 const db = (window.supabase) ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
 
+// ── STATE UTILISATEUR ──────────────────────────────────────────────────────
+let curRole     = 'worker';  // 'admin' | 'resp' | 'worker'
+let curUserId   = null;
+let curUserName = '';
+let _inviteToken = null;
+let _inviteRole  = 'worker';
+
 async function syncToSupabase() {
   if (!db) return;
   try {
@@ -563,6 +570,130 @@ async function fetchFromSupabase() {
     if (mtr.data?.length) { meetings.length=0;  mtr.data.forEach(x=>meetings.push(x)); }
     if (updated) { rStats();rTasks();rMetiers();rProjets();rCal();rAgDay(selDay);rEmails();rContacts(); }
   } catch(e) { console.warn('Supabase fetch:', e.message); }
+}
+
+// ── PROFIL & RÔLES ────────────────────────────────────────────────────────
+async function loadUserProfile() {
+  if (!db) return;
+  try {
+    const { data: { user } } = await db.auth.getUser();
+    if (!user) return;
+    curUserId = user.id;
+    const { data: profile } = await db.from('user_profiles').select('*').eq('id', user.id).single();
+    if (profile) {
+      curRole     = profile.role     || 'worker';
+      curUserName = profile.name     || user.email;
+    } else {
+      // Aucun profil — on le crée. Premier utilisateur = admin.
+      const { count } = await db.from('user_profiles')
+        .select('id', { count: 'exact', head: true });
+      const isFirst = (count === 0);
+      const name  = user.user_metadata?.full_name || user.email;
+      const role  = isFirst ? 'admin' : (_inviteRole || 'worker');
+      curRole     = role;
+      curUserName = name;
+      await db.from('user_profiles').insert({ id: user.id, name, role, metier: '', phone: '' });
+    }
+    // Marquer l'invitation comme utilisée
+    if (_inviteToken) {
+      await db.from('invitations')
+        .update({ used_by: user.id })
+        .eq('token', _inviteToken)
+        .is('used_by', null);
+      _inviteToken = null;
+    }
+    applyRoleUI();
+  } catch(e) { console.warn('loadUserProfile:', e.message); }
+}
+
+function applyRoleUI() {
+  const rl = { admin: 'Admin', resp: 'Responsable', worker: 'Intervenant' };
+  const roleColors = { admin: '#EEEDFE:#3C3489', resp: '#E6F1FB:#0C447C', worker: 'var(--bg2):var(--txt2)' };
+  const [rbg, rc] = (roleColors[curRole] || roleColors.worker).split(':');
+  // Badge rôle dans la topbar de Settings
+  const badge = document.getElementById('cur-role-badge');
+  if (badge) {
+    badge.textContent = rl[curRole] || curRole;
+    badge.style.background = rbg;
+    badge.style.color = rc;
+  }
+  // Nom dans Settings
+  const nameEl = document.getElementById('cur-user-name');
+  if (nameEl) nameEl.textContent = curUserName;
+  // Section admin uniquement
+  const adminOnly = document.getElementById('settings-admin-section');
+  if (adminOnly) adminOnly.style.display = curRole === 'admin' ? '' : 'none';
+}
+
+async function genInvite(role) {
+  if (!db || curRole !== 'admin') return;
+  const btn = document.getElementById('invite-btn-' + role);
+  if (btn) { btn.disabled = true; btn.textContent = 'Génération…'; }
+  try {
+    const { data, error } = await db.from('invitations')
+      .insert({ role, created_by: curUserId })
+      .select()
+      .single();
+    if (error || !data) throw new Error(error?.message || 'Erreur');
+    const link = `${window.location.origin}/?invite=${data.token}&role=${role}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      showToast('Lien copié dans le presse-papiers !');
+    } catch {
+      prompt('Copiez ce lien d\'invitation :', link);
+    }
+  } catch(e) {
+    alert('Erreur génération lien : ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Générer un lien'; }
+  }
+}
+
+async function rMembers() {
+  const el = document.getElementById('members-list');
+  if (!el || !db) return;
+  el.innerHTML = '<div style="font-size:12px;color:var(--txt3)">Chargement…</div>';
+  try {
+    const { data } = await db.from('user_profiles').select('*').order('created_at');
+    if (!data?.length) { el.innerHTML = '<div style="font-size:12px;color:var(--txt3)">Aucun membre.</div>'; return; }
+    const rl = { admin: 'Admin', resp: 'Responsable', worker: 'Intervenant' };
+    const rc = { admin: '#EEEDFE:#3C3489', resp: '#E6F1FB:#0C447C', worker: 'var(--bg2):var(--txt2)' };
+    el.innerHTML = data.map(p => {
+      const [bg, c] = (rc[p.role] || rc.worker).split(':');
+      const ini = p.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      const isMe = p.id === curUserId;
+      return `<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:.5px solid var(--border)">
+        <div style="width:34px;height:34px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--txt);flex-shrink:0">${ini}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--txt)">${p.name}${isMe?' <span style="font-size:11px;color:var(--txt3)">(moi)</span>':''}</div>
+          ${p.metier?`<div style="font-size:11px;color:var(--txt2)">${p.metier}</div>`:''}
+        </div>
+        ${curRole==='admin'?`<select onchange="updateMemberRole('${p.id}',this.value)" style="padding:4px 8px;border:.5px solid var(--border2);border-radius:8px;background:${bg};color:${c};font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:inherit"><option value="worker" ${p.role==='worker'?'selected':''}>Intervenant</option><option value="resp" ${p.role==='resp'?'selected':''}>Responsable</option><option value="admin" ${p.role==='admin'?'selected':''}>Admin</option></select>`:`<span class="chip" style="background:${bg};color:${c}">${rl[p.role]}</span>`}
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = `<div style="font-size:12px;color:var(--red-c)">Erreur : ${e.message}</div>`; }
+}
+
+async function updateMemberRole(userId, newRole) {
+  if (!db || curRole !== 'admin') return;
+  try {
+    await db.from('user_profiles').update({ role: newRole }).eq('id', userId);
+    showToast('Rôle mis à jour.');
+  } catch(e) { alert('Erreur : ' + e.message); }
+}
+
+function showToast(msg) {
+  let t = document.getElementById('toast-msg');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast-msg';
+    t.style.cssText = 'position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:9px 18px;border-radius:24px;font-size:13px;font-weight:500;z-index:99999;pointer-events:none;transition:opacity .3s';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => { t.style.opacity = '0'; }, 2500);
 }
 
 // ── DATA ──────────────────────────────────────────────────────────────────
@@ -1030,15 +1161,37 @@ function rGantt(){
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
 function rSettings(){
   const rl={admin:'Admin',resp:'Responsable',worker:'Intervenant'};
+  const rc={admin:'#EEEDFE:#3C3489',resp:'#E6F1FB:#0C447C',worker:'var(--bg2):var(--txt2)'};
+  const [rbg,rclr]=(rc[curRole]||rc.worker).split(':');
   document.getElementById('settings-body').innerHTML=`
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Mon compte</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg1);border-radius:12px">
+        <div style="width:40px;height:40px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--txt);flex-shrink:0">${curUserName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?'}</div>
+        <div style="flex:1;min-width:0">
+          <div id="cur-user-name" style="font-size:14px;font-weight:600;color:var(--txt)">${curUserName}</div>
+          <div style="font-size:11px;color:var(--txt2);margin-top:2px">${curUserId?curUserId.slice(0,8)+'…':''}</div>
+        </div>
+        <span id="cur-role-badge" class="chip" style="background:${rbg};color:${rclr};flex-shrink:0">${rl[curRole]||curRole}</span>
+      </div>
+    </div>
     <div>
       <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Corps de métier</div>
       ${METIERS.map((m,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:.5px solid var(--border)"><span style="font-size:13px;color:var(--txt)">${m}</span><button onclick="remMet(${i})" style="background:none;border:none;cursor:pointer;font-size:15px;color:var(--txt3)" aria-label="Supprimer"><i class="ti ti-trash"></i></button></div>`).join('')}
       <div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="new-met-inp" placeholder="Ajouter un métier…" style="flex:1;padding:8px 11px;border:.5px solid var(--border2);border-radius:9px;background:var(--bg0);color:var(--txt);font-size:13px;font-family:inherit;outline:none"><button onclick="addMet()" style="padding:8px 13px;border-radius:9px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);cursor:pointer;font-size:13px;font-family:inherit">Ajouter</button></div>
     </div>
     <div>
-      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Intervenants</div>
-      ${contacts.map(c=>`<div style="display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:.5px solid var(--border)">${avEl(c.av,c.ini,30,11)}<div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--txt)">${c.name}</div><div style="font-size:11px;color:var(--txt2)">${c.metier}</div></div><span class="chip" style="background:${c.role==='admin'?'#EEEDFE':c.role==='resp'?'#E6F1FB':'var(--bg1)'};color:${c.role==='admin'?'#3C3489':c.role==='resp'?'#0C447C':'var(--txt2)'}">${rl[c.role]}</span></div>`).join('')}
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Équipe</div>
+      <div id="members-list"><div style="font-size:12px;color:var(--txt3)">Chargement…</div></div>
+    </div>
+    <div id="settings-admin-section" style="display:${curRole==='admin'?'':'none'}">
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Invitations <span style="font-size:10px;font-weight:400;color:var(--txt3)">(admin)</span></div>
+      <p style="font-size:12px;color:var(--txt3);margin-bottom:10px">Génère un lien unique valable 7 jours pour inviter un membre.</p>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button id="invite-btn-worker" onclick="genInvite('worker')" style="padding:10px 14px;border-radius:10px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);font-size:13px;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:8px"><i class="ti ti-link" style="font-size:16px"></i> Inviter un Intervenant</button>
+        <button id="invite-btn-resp" onclick="genInvite('resp')" style="padding:10px 14px;border-radius:10px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);font-size:13px;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:8px"><i class="ti ti-link" style="font-size:16px"></i> Inviter un Responsable</button>
+        <button id="invite-btn-admin" onclick="genInvite('admin')" style="padding:10px 14px;border-radius:10px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);font-size:13px;cursor:pointer;font-family:inherit;text-align:left;display:flex;align-items:center;gap:8px"><i class="ti ti-link" style="font-size:16px"></i> Inviter un Admin</button>
+      </div>
     </div>
     <div>
       <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Horaires notifications</div>
@@ -1052,6 +1205,7 @@ function rSettings(){
       <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Compte</div>
       <button onclick="authLogout()" style="width:100%;padding:12px;border-radius:12px;background:var(--red-bg);color:var(--red-c);border:.5px solid var(--red-bd);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-logout"></i> Se déconnecter</button>
     </div>`;
+  rMembers();
 }
 function addMet(){const v=document.getElementById('new-met-inp').value.trim();if(!v)return;METIERS.push(v);rSettings();}
 function remMet(i){METIERS.splice(i,1);rSettings();}
@@ -1313,7 +1467,11 @@ function showAuthMsg(msg, ok) {
   el.textContent = msg;
   el.style.cssText = `display:block;padding:9px 12px;border-radius:8px;font-size:13px;margin-bottom:12px;background:${ok?'#EAF3DE':'#FCEBEB'};color:${ok?'#27500A':'#791F1F'}`;
 }
-function showApp() { document.getElementById('auth-screen').style.display = 'none'; fetchFromSupabase(); }
+async function showApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  await loadUserProfile();
+  fetchFromSupabase();
+}
 function showLogin() { document.getElementById('auth-screen').style.display = 'flex'; }
 
 async function authLogin() {
@@ -1330,23 +1488,35 @@ async function authSignup() {
   const nom    = document.getElementById('su-nom').value.trim();
   const email  = document.getElementById('su-email').value.trim();
   const tel    = document.getElementById('su-tel').value.trim();
-  const role   = document.getElementById('su-role').value;
   const metier = document.getElementById('su-metier').value;
   const pass   = document.getElementById('su-pass').value;
   const pass2  = document.getElementById('su-pass2').value;
   if (!prenom || !nom || !email || !pass) return showAuthMsg2('Tous les champs obligatoires (*) doivent être remplis.');
   if (pass.length < 6) return showAuthMsg2('Mot de passe min. 6 caractères.');
   if (pass !== pass2) return showAuthMsg2('Les mots de passe ne correspondent pas.');
+
+  // Vérifier le token d'invitation si présent
+  if (_inviteToken) {
+    const { data: inv } = await db.from('invitations')
+      .select('role,expires_at,used_by').eq('token', _inviteToken).single();
+    if (!inv) return showAuthMsg2('Lien d\'invitation invalide ou expiré.');
+    if (inv.used_by) return showAuthMsg2('Ce lien d\'invitation a déjà été utilisé.');
+    if (new Date(inv.expires_at) < new Date()) return showAuthMsg2('Ce lien d\'invitation a expiré.');
+    _inviteRole = inv.role;
+  }
+
   const fullName = `${prenom} ${nom}`;
-  const ini = (prenom[0]+(nom[0]||'')).toUpperCase();
-  const av = ['p','b','c','g','a'][contacts.length % 5];
   const { data, error } = await db.auth.signUp({ email, password: pass, options: { data: { full_name: fullName } } });
   if (error) return showAuthMsg2(error.message);
-  // Ajouter aux contacts locaux et Supabase
-  const newContact = { id: Math.max(0,...contacts.map(c=>c.id))+1, name: fullName, ini, role, metier: metier||'', phone: tel, av };
+
+  // Ajouter aux contacts locaux (compatibilité avec les listes existantes)
+  const ini = (prenom[0]+(nom[0]||'')).toUpperCase();
+  const av  = ['p','b','c','g','a'][contacts.length % 5];
+  const newContact = { id: Math.max(0,...contacts.map(c=>c.id),0)+1, name: fullName, ini, role: _inviteRole||'worker', metier: metier||'', phone: tel, av };
   contacts.push(newContact);
   saveAll();
-  showAuthMsg2('Compte créé avec succès ! Connexion en cours…', true);
+
+  showAuthMsg2('Compte créé ! Connexion en cours…', true);
   setTimeout(() => {
     document.getElementById('auth-email').value = email;
     document.getElementById('auth-pass').value = pass;
@@ -1370,6 +1540,13 @@ function switchToSignup() {
   document.getElementById('auth-login-view').style.display = 'none';
   document.getElementById('auth-signup-view').style.display = 'block';
   document.getElementById('su-metier').innerHTML = '<option value="">— Choisir —</option>' + METIERS.map(m=>`<option value="${m}">${m}</option>`).join('');
+  // Afficher une info si on arrive via invitation
+  const invInfo = document.getElementById('invite-info');
+  if (invInfo) {
+    const rl = { admin: 'Admin', resp: 'Responsable', worker: 'Intervenant' };
+    invInfo.style.display = _inviteToken ? 'block' : 'none';
+    invInfo.textContent = _inviteToken ? `Vous avez été invité en tant que : ${rl[_inviteRole]||_inviteRole}` : '';
+  }
 }
 function switchToLogin() {
   document.getElementById('auth-signup-view').style.display = 'none';
@@ -1415,10 +1592,19 @@ async function doReset() {
   setTimeout(() => { document.getElementById('reset-screen').style.display = 'none'; showApp(); }, 1500);
 }
 
-// Détection du lien de reset via l'URL (calculé ici, DOM pas encore prêt)
-// On ne touche PAS au DOM ici — les éléments auth-screen/reset-screen
-// sont définis APRÈS ce bloc de script et n'existent pas encore.
+// Détection du lien de reset via l'URL
 const _isRecovery = window.location.hash.includes('type=recovery') || window.location.search.includes('type=recovery');
+
+// Détection du lien d'invitation
+(function detectInvite() {
+  const p = new URLSearchParams(window.location.search);
+  if (p.has('invite')) {
+    _inviteToken = p.get('invite');
+    _inviteRole  = p.get('role') || 'worker';
+    // Nettoyer l'URL sans recharger la page
+    history.replaceState({}, '', window.location.pathname);
+  }
+})();
 
 // Écoute les changements d'état de connexion
 // onAuthStateChange s'exécute de façon asynchrone → le DOM est prêt à ce moment-là
@@ -1431,10 +1617,13 @@ if (db) {
     } else if (event === 'SIGNED_OUT') {
       document.getElementById('reset-screen').style.display = 'none';
       showLogin();
+      if (_inviteToken) setTimeout(() => switchToSignup(), 50);
     } else if (session) {
       showApp();
     } else {
       showLogin();
+      // Si lien d'invitation sans session → ouvrir vue inscription directement
+      if (_inviteToken) setTimeout(() => switchToSignup(), 50);
     }
   });
 } else {
@@ -1484,6 +1673,7 @@ if ('serviceWorker' in navigator) {
       </div>
     </div>
     <div id="auth-msg2" style="display:none;margin-bottom:12px"></div>
+    <div id="invite-info" style="display:none;padding:9px 12px;border-radius:8px;font-size:13px;background:#E6F1FB;color:#0C447C;margin-bottom:12px"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div>
         <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Prénom *</label>
@@ -1501,14 +1691,6 @@ if ('serviceWorker' in navigator) {
     <div style="margin-bottom:12px">
       <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Téléphone</label>
       <input type="tel" id="su-tel" placeholder="06 00 00 00 00" style="width:100%;padding:10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
-    </div>
-    <div style="margin-bottom:12px">
-      <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Rôle *</label>
-      <select id="su-role" style="width:100%;padding:10px 12px;border:.5px solid var(--border2);border-radius:10px;font-size:14px;background:var(--bg0);color:var(--txt);outline:none;font-family:inherit;box-sizing:border-box">
-        <option value="worker">Intervenant</option>
-        <option value="resp">Responsable</option>
-        <option value="admin">Admin</option>
-      </select>
     </div>
     <div style="margin-bottom:12px">
       <label style="font-size:12px;color:var(--txt2);display:block;margin-bottom:4px">Métier</label>
