@@ -36,7 +36,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   body{background:var(--bg1)}
   .phone{margin:16px auto;border:.5px solid var(--border);border-radius:16px;box-shadow:0 4px 32px rgba(0,0,0,.12);overflow:hidden;max-height:calc(100dvh - 32px)}
 }
+/* Gantt masqué dans la bottom nav mobile, visible uniquement en sidebar desktop */
+.gantt-nav-btn{display:none}
 @media(min-width:900px){
+  .gantt-nav-btn{display:flex}
   body{background:var(--bg0)}
   /* Plein écran, sans widget téléphone */
   .phone{max-width:none;margin:0;border-radius:0;border:none;box-shadow:none;height:100dvh;max-height:100dvh;padding-left:220px}
@@ -206,10 +209,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="ib" onclick="goSettings()" aria-label="Paramètres"><i class="ti ti-settings"></i></button>
     <button class="ib" onclick="authLogout()" aria-label="Déconnexion" title="Se déconnecter" style="color:var(--txt3)"><i class="ti ti-logout"></i></button>
   </div>
-  <div id="notif-bar" class="notif">
+  <div id="notif-bar" class="notif" style="display:none">
     <i class="ti ti-bell" style="font-size:17px;color:#378ADD" aria-hidden="true"></i>
-    <div style="flex:1;font-size:13px;color:var(--blue-c)"><strong>2 tâches</strong> assignées — 1 haute priorité échéant demain.</div>
-    <button onclick="this.parentElement.remove()" style="background:none;border:none;cursor:pointer;font-size:16px;color:#378ADD;padding:0" aria-label="Fermer">×</button>
+    <div id="notif-bar-txt" style="flex:1;font-size:13px;color:var(--blue-c)"></div>
+    <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:16px;color:#378ADD;padding:0" aria-label="Fermer">×</button>
   </div>
   <div id="stats-bar" class="stats"></div>
   <div class="tabs">
@@ -464,7 +467,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="btn-s" onclick="closeModal('m-avancement')">Annuler</button>
 </div></div>
 
- class="ov" style="display:none"><div class="sh">
+<div id="m-task" class="ov" style="display:none"><div class="sh">
   <div class="sh-h"></div><h3>Nouvelle tâche</h3>
   <div class="fg"><label>Zone</label><select id="nt-z"></select></div>
   <div class="fg"><label>Tâche</label><input type="text" id="nt-n" placeholder="Description…"></div>
@@ -509,6 +512,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button onclick="switchMain('sc-emails',this)" aria-label="Emails"><i class="ti ti-mail"></i><span>Emails</span></button>
   <button onclick="switchMain('sc-reu',this)" aria-label="Réunions"><i class="ti ti-microphone"></i><span>Réunions</span></button>
   <button onclick="switchMain('sc-contacts',this)" aria-label="Contacts"><i class="ti ti-users"></i><span>Contacts</span></button>
+  <button class="gantt-nav-btn" onclick="switchMain('sc-gantt',this)" aria-label="Gantt"><i class="ti ti-chart-gantt"></i><span>Gantt</span></button>
 </div>
 </div><!-- .phone -->
 
@@ -532,19 +536,21 @@ async function syncToSupabase() {
     await db.from('emails').upsert(emails.map(e=>({id:e.id,from_name:e.from,subject:e.subject,date:e.date,prev:e.prev,body:e.body,unread:e.unread,done:e.done})));
     await db.from('projets').upsert(projets.map(p=>({id:p.id,nom:p.nom,type:p.type,client:p.client||'',resp:p.resp||null,statut:p.statut,avancement:p.avancement,budget:p.budget||null,date_debut:p.dateDebut||null,date_fin:p.dateFin||null,notes:p.notes||'',updates:p.updates||[]})));
     await db.from('metiers').upsert(METIERS.map((m,i)=>({id:i+1,name:m})),{onConflict:'name'});
+    if(meetings.length) await db.from('meetings').upsert(meetings.map(m=>({id:m.id,title:m.title||'',date:m.date,dur:m.dur||0,tx:m.tx||'',resume:m.resume||'',tasks:m.tasks||[],parts:m.parts||[]})));
   } catch(e) { console.warn('Supabase sync:', e.message); }
 }
 
 async function fetchFromSupabase() {
   if (!db) return;
   try {
-    const [tr,cr,er,emr,pjr,mr] = await Promise.all([
+    const [tr,cr,er,emr,pjr,mr,mtr] = await Promise.all([
       db.from('tasks').select('*').order('id'),
       db.from('contacts').select('*').order('id'),
       db.from('events').select('*').order('id'),
       db.from('emails').select('*').order('id'),
       db.from('projets').select('*').order('id'),
       db.from('metiers').select('*').order('id'),
+      db.from('meetings').select('*').order('date'),
     ]);
     let updated = false;
     if (tr.data?.length)  { tasks.length=0;    tr.data.forEach(t=>tasks.push({...t,photos:t.photos||[]}));  nTid=Math.max(...tasks.map(t=>t.id))+1; updated=true; }
@@ -554,6 +560,7 @@ async function fetchFromSupabase() {
     if (emr.data?.length) { emails.length=0;    emr.data.forEach(x=>emails.push({...x,from:x.from_name})); }
     if (pjr.data?.length) { projets.length=0;   pjr.data.forEach(x=>projets.push({...x,dateDebut:x.date_debut,dateFin:x.date_fin,updates:x.updates||[]})); nPjId=Math.max(...projets.map(p=>p.id))+1; }
     if (mr.data?.length)  { METIERS.length=0;   mr.data.forEach(x=>METIERS.push(x.name)); }
+    if (mtr.data?.length) { meetings.length=0;  mtr.data.forEach(x=>meetings.push(x)); }
     if (updated) { rStats();rTasks();rMetiers();rProjets();rCal();rAgDay(selDay);rEmails();rContacts(); }
   } catch(e) { console.warn('Supabase fetch:', e.message); }
 }
@@ -653,6 +660,18 @@ function rStats(){
   const af=tasks.filter(t=>t.statut==='À faire').length,ec=tasks.filter(t=>t.statut==='En cours').length,fi=tasks.filter(t=>t.statut==='Fini').length;
   const od=tasks.filter(t=>t.deadline&&dd(t.deadline)<0&&t.statut!=='Fini').length;
   document.getElementById('stats-bar').innerHTML=[['À faire',af,'#BA7517'],['En cours',ec,'#378ADD'],['Finis',fi,'#639922'],['En retard',od,od>0?'#E24B4A':'var(--txt)']].map(([l,n,c])=>`<div class="stat"><div class="n" style="color:${c}">${n}</div><div class="l">${l}</div></div>`).join('');
+  // B6 — Notification bar dynamique
+  const demain=tasks.filter(t=>t.deadline&&dd(t.deadline)===1&&t.statut!=='Fini');
+  const urgentes=tasks.filter(t=>t.prio==='▲ Haute'&&t.statut!=='Fini');
+  const nb=document.getElementById('notif-bar'),nbt=document.getElementById('notif-bar-txt');
+  if(od>0||demain.length>0){
+    let msg='';
+    if(od>0) msg+=`<strong>${od} tâche${od>1?'s':''}</strong> en retard`;
+    if(od>0&&demain.length>0) msg+=' — ';
+    if(demain.length>0) msg+=`<strong>${demain.length}</strong> échéant demain`;
+    if(urgentes.length>0) msg+=` — ${urgentes.length} haute priorité`;
+    nbt.innerHTML=msg; nb.style.display='flex';
+  } else { nb.style.display='none'; }
 }
 function fTasks(){
   if(cFilter==='all')return tasks;
@@ -1181,8 +1200,9 @@ function saveAvancement() {
   const newAv = parseInt(document.getElementById('av-slider').value);
   const newSt = document.getElementById('av-st').value;
   const note = document.getElementById('av-note').value.trim();
+  const oldAv = p.avancement;
   p.avancement = newAv; p.statut = newSt;
-  if (note || newAv !== p.avancement) p.updates.push({ date: isoD(TODAY), note, av: newAv });
+  if (note || newAv !== oldAv) p.updates.push({ date: isoD(TODAY), note, av: newAv });
   saveAll(); closeModal('m-avancement');
   openProjet(curPjId);
 }
