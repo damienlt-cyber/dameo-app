@@ -38,24 +38,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 }
 @media(min-width:900px){
   body{background:var(--bg0)}
-  .phone{max-width:none;margin:0;border-radius:0;border:none;box-shadow:none;max-height:100dvh;height:100dvh;flex-direction:row}
-  /* Sidebar navigation */
-  .bnav{order:-1;flex-direction:column;width:220px;min-width:220px;border-top:none;border-right:.5px solid var(--border);padding:24px 12px;justify-content:flex-start;gap:3px;height:100%;overflow-y:auto;flex-shrink:0}
-  .bnav::before{content:'Nomade 7';font-size:17px;font-weight:700;color:var(--txt);display:block;padding:2px 12px;margin-bottom:24px;letter-spacing:-.3px}
-  .bnav button{flex:none;flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 14px;border-radius:10px;font-size:14px;width:100%;text-align:left}
+  /* Plein écran, sans widget téléphone */
+  .phone{max-width:none;margin:0;border-radius:0;border:none;box-shadow:none;height:100dvh;max-height:100dvh;padding-left:220px}
+  /* Sidebar fixe à gauche */
+  .bnav{position:fixed;top:0;left:0;bottom:0;width:220px;flex-direction:column;border-top:none;border-right:.5px solid var(--border);background:var(--bg0);padding:24px 10px 24px;justify-content:flex-start;gap:2px;overflow-y:auto;z-index:50;flex-shrink:0}
+  .bnav::before{content:'Nomade 7';font-size:17px;font-weight:700;color:var(--txt);display:block;padding:2px 12px;margin-bottom:20px;letter-spacing:-.3px}
+  .bnav button{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;padding:9px 14px;border-radius:10px;font-size:14px;width:100%;flex:none;border:none;background:none;cursor:pointer;color:var(--txt3);font-family:inherit}
   .bnav button.on{background:var(--bg2);color:var(--txt)}
-  .bnav button i{font-size:20px}
-  /* Main content */
-  .screen.active{flex:1;min-width:0}
-  .topbar{padding:18px 28px 14px}
-  .stats{grid-template-columns:repeat(4,1fr);padding:16px 28px}
-  .filters{padding:10px 28px}
-  .zone-hd{padding:8px 28px 4px}
-  .tlist{padding:0 28px;display:grid;grid-template-columns:repeat(2,1fr)}
-  .fab-row{padding:14px 28px}
-  .ds{padding:0 28px 16px}
-  .qbox{margin:0 28px 14px}
-  /* Modals centrées au lieu de bottom sheet */
+  .bnav button i{font-size:20px;flex-shrink:0}
+  /* Contenu : meilleures marges et disposition */
+  .topbar{padding:18px 32px 14px}
+  .stats{grid-template-columns:repeat(4,1fr);padding:16px 32px}
+  .filters{padding:10px 32px}
+  .zone-hd{padding:8px 32px 4px}
+  .tlist{padding:0 32px;display:grid;grid-template-columns:repeat(2,1fr)}
+  .fab-row{padding:14px 32px}
+  .ds{padding:0 32px 16px}
+  .qbox{margin:0 32px 14px}
+  /* Modales centrées au lieu de bottom sheet */
   .ov{align-items:center}
   .sh{border-radius:16px;max-width:580px;max-height:85vh}
 }
