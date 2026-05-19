@@ -20,7 +20,7 @@ Voir SPECS.md section 5.1. Bugs B1 à B7 à corriger avant tout nouveau dévelop
 | B1 — Modal m-task balise manquante | ✅ Corrigé |
 | B2 — saveAvancement() bug logique | ✅ Corrigé |
 | B3 — Photos base64 localStorage | ⬜ À faire (migrer vers Supabase Storage) |
-| B4 — Clé API Claude exposée | ⬜ À faire (Supabase Edge Function proxy) |
+| B4 — Clé API Claude exposée | ✅ Corrigé (Edge Function claude-proxy déployée) |
 | B5 — Gantt inaccessible nav | ✅ Corrigé (sidebar desktop) |
 | B6 — Notification bar hardcodée | ✅ Corrigé (données réelles) |
 | B7 — Meetings non sync Supabase | ✅ Corrigé (table créée + sync/fetch) |

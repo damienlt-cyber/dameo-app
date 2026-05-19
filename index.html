@@ -870,7 +870,7 @@ async function analyzeEmail(id){
   const prompt=`Tu es assistant chantier naval Nomade 7. Email:\nDe: ${em.from}\nObjet: ${em.subject}\nContenu:\n"""\n${em.body}\n"""\nZones: ${ZONES.join(', ')}\nContacts: ${contacts.map(c=>c.name).join(', ')}\nRéponds UNIQUEMENT en JSON strict sans markdown:\n{"resume":"2 phrases","elements":[{"type":"tache|evenement","titre":"","zone":null,"metier":null,"assignee":null,"priorite":"▲ Haute|● Normale","date":null,"notes":""}]}`;
   let parsed;
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content:prompt}]})});
+    const r=await fetch('https://owkavqtcmrenazfatbny.supabase.co/functions/v1/claude-proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:800,messages:[{role:'user',content:prompt}]})});
     const data=await r.json();parsed=JSON.parse(data.content.filter(b=>b.type==='text').map(b=>b.text).join('').replace(/```json|```/g,'').trim());
   }catch(_){parsed=EMAIL_DEMOS[em.id]||{resume:'Analysé.',elements:[]};}
   document.getElementById('ep-load').style.display='none';document.getElementById('ep-sum').style.display='block';document.getElementById('ep-sum').textContent=parsed.resume;
@@ -936,7 +936,7 @@ async function analyzeReu(){
   const prompt=`Tu es assistant chantier naval Nomade 7. Transcription:\n"""\n${tx}\n"""\nZones: ${ZONES.join(', ')}\nIntervenants: ${contacts.map(c=>c.name).join(', ')}\nRéponds UNIQUEMENT en JSON strict sans markdown:\n{"resume":"3-4 phrases","taches":[{"nom":"","zone":null,"metier":null,"assignee":null,"priorite":"▲ Haute|● Normale","deadline":null,"notes":""}]}`;
   let parsed;
   try{
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
+    const r=await fetch('https://owkavqtcmrenazfatbny.supabase.co/functions/v1/claude-proxy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({max_tokens:1000,messages:[{role:'user',content:prompt}]})});
     const data=await r.json();parsed=JSON.parse(data.content.filter(b=>b.type==='text').map(b=>b.text).join('').replace(/```json|```/g,'').trim());
   }catch(_){parsed={resume:REU_DEMO_SUM,taches:REU_DEMO_PROPS};}
   document.getElementById('rp-load').style.display='none';document.getElementById('rp-sum').style.display='block';document.getElementById('rp-sum').textContent=parsed.resume;document.getElementById('rp-raw').style.display='block';document.getElementById('rp-raw').textContent=tx;
