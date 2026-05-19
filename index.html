@@ -1341,7 +1341,7 @@ async function authReset() {
   if (!db) return;
   const email = document.getElementById('auth-email').value.trim();
   if (!email) return showAuthMsg('Entrez votre email d\'abord.');
-  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/?type=recovery' });
   if (error) return showAuthMsg(error.message);
   showAuthMsg('Email de réinitialisation envoyé !', true);
 }
@@ -1372,41 +1372,28 @@ async function doReset() {
   setTimeout(() => { document.getElementById('reset-screen').style.display = 'none'; showApp(); }, 1500);
 }
 
-// Détection du lien de reset via l'URL (flux implicite : hash contient type=recovery)
+// Détection du lien de reset via l'URL
+// On vérifie à la fois le hash (ancien flux implicite) et les query params (flux PKCE)
 const _hashParams = new URLSearchParams(window.location.hash.replace('#',''));
-const _isRecovery = _hashParams.get('type') === 'recovery';
+const _queryParams = new URLSearchParams(window.location.search);
+const _isRecovery = _hashParams.get('type') === 'recovery' || _queryParams.get('type') === 'recovery';
 if (_isRecovery) {
   document.getElementById('reset-screen').style.display = 'flex';
 }
 
 // Écoute les changements d'état de connexion
-// Supabase v2 déclenche SIGNED_IN AVANT PASSWORD_RECOVERY sur un lien reset.
-// On utilise un timer court : PASSWORD_RECOVERY l'annule s'il arrive dans les 600ms.
 if (db) {
-  let _showAppTimer = null;
-  const _showResetScreen = () => {
-    clearTimeout(_showAppTimer);
-    document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('reset-screen').style.display = 'flex';
-  };
   db.auth.onAuthStateChange((event, session) => {
-    if (event === 'PASSWORD_RECOVERY') {
-      _showResetScreen();
+    if (event === 'PASSWORD_RECOVERY' || (_isRecovery && session)) {
+      // Lien de reset : on affiche l'écran de nouveau mot de passe
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('reset-screen').style.display = 'flex';
     } else if (event === 'SIGNED_OUT') {
-      clearTimeout(_showAppTimer);
       document.getElementById('reset-screen').style.display = 'none';
       showLogin();
     } else if (session) {
-      if (_isRecovery) {
-        // Flux implicite : type=recovery détecté dans l'URL dès le départ
-        _showResetScreen();
-      } else {
-        // Connexion normale : on attend 600ms pour laisser PASSWORD_RECOVERY se déclencher en premier
-        clearTimeout(_showAppTimer);
-        _showAppTimer = setTimeout(() => showApp(), 600);
-      }
+      showApp();
     } else {
-      clearTimeout(_showAppTimer);
       showLogin();
     }
   });
