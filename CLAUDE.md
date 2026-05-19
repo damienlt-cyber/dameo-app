@@ -12,14 +12,15 @@ Application web de gestion de chantier naval (Nomade 7), vanilla JS pur, fichier
 - **IA** : Claude API via proxy Supabase Edge Function (B4 à implémenter)
 - **Hébergement** : Vercel (déploiement via `vercel --prod` après `git push`)
 
-## Où on en est — Phase 1 (bugs critiques)
+## Où on en est — Phase 2a terminée
 Voir SPECS.md section 5.1. Bugs B1 à B7 à corriger avant tout nouveau développement.
 
 | Bug | Statut |
 |-----|--------|
 | B1 — Modal m-task balise manquante | ✅ Corrigé |
 | B2 — saveAvancement() bug logique | ✅ Corrigé |
-| B3 — Photos base64 localStorage | ⬜ À faire (migrer vers Supabase Storage) |
+| B3 — Photos base64 localStorage | ⬜ Phase 2.6 (Supabase Storage) |
+| **Phase 2a — RLS Supabase** | ✅ Activé sur 7 tables (authenticated only) |
 | B4 — Clé API Claude exposée | ✅ Corrigé (Edge Function claude-proxy déployée) |
 | B5 — Gantt inaccessible nav | ✅ Corrigé (sidebar desktop) |
 | B6 — Notification bar hardcodée | ✅ Corrigé (données réelles) |
