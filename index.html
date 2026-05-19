@@ -36,6 +36,29 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   body{background:var(--bg1)}
   .phone{margin:16px auto;border:.5px solid var(--border);border-radius:16px;box-shadow:0 4px 32px rgba(0,0,0,.12);overflow:hidden;max-height:calc(100dvh - 32px)}
 }
+@media(min-width:900px){
+  body{background:var(--bg0)}
+  .phone{max-width:none;margin:0;border-radius:0;border:none;box-shadow:none;max-height:100dvh;height:100dvh;flex-direction:row}
+  /* Sidebar navigation */
+  .bnav{order:-1;flex-direction:column;width:220px;min-width:220px;border-top:none;border-right:.5px solid var(--border);padding:24px 12px;justify-content:flex-start;gap:3px;height:100%;overflow-y:auto;flex-shrink:0}
+  .bnav::before{content:'Nomade 7';font-size:17px;font-weight:700;color:var(--txt);display:block;padding:2px 12px;margin-bottom:24px;letter-spacing:-.3px}
+  .bnav button{flex:none;flex-direction:row;justify-content:flex-start;gap:10px;padding:10px 14px;border-radius:10px;font-size:14px;width:100%;text-align:left}
+  .bnav button.on{background:var(--bg2);color:var(--txt)}
+  .bnav button i{font-size:20px}
+  /* Main content */
+  .screen.active{flex:1;min-width:0}
+  .topbar{padding:18px 28px 14px}
+  .stats{grid-template-columns:repeat(4,1fr);padding:16px 28px}
+  .filters{padding:10px 28px}
+  .zone-hd{padding:8px 28px 4px}
+  .tlist{padding:0 28px;display:grid;grid-template-columns:repeat(2,1fr)}
+  .fab-row{padding:14px 28px}
+  .ds{padding:0 28px 16px}
+  .qbox{margin:0 28px 14px}
+  /* Modals centrées au lieu de bottom sheet */
+  .ov{align-items:center}
+  .sh{border-radius:16px;max-width:580px;max-height:85vh}
+}
 .screen{display:none;flex-direction:column;flex:1;overflow:hidden}
 .screen.active{display:flex}
 .scroll{overflow-y:auto;flex:1}
