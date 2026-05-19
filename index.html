@@ -1372,7 +1372,7 @@ async function doReset() {
   setTimeout(() => { document.getElementById('reset-screen').style.display = 'none'; showApp(); }, 1500);
 }
 
-// Détection immédiate du lien de reset via l'URL (avant que Supabase traite le hash)
+// Détection du lien de reset via l'URL (flux implicite : hash contient type=recovery)
 const _hashParams = new URLSearchParams(window.location.hash.replace('#',''));
 const _isRecovery = _hashParams.get('type') === 'recovery';
 if (_isRecovery) {
@@ -1380,18 +1380,33 @@ if (_isRecovery) {
 }
 
 // Écoute les changements d'état de connexion
+// Supabase v2 déclenche SIGNED_IN AVANT PASSWORD_RECOVERY sur un lien reset.
+// On utilise un timer court : PASSWORD_RECOVERY l'annule s'il arrive dans les 600ms.
 if (db) {
+  let _showAppTimer = null;
+  const _showResetScreen = () => {
+    clearTimeout(_showAppTimer);
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('reset-screen').style.display = 'flex';
+  };
   db.auth.onAuthStateChange((event, session) => {
-    const resetVisible = document.getElementById('reset-screen').style.display === 'flex';
-    if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && _isRecovery)) {
-      document.getElementById('auth-screen').style.display = 'none';
-      document.getElementById('reset-screen').style.display = 'flex';
+    if (event === 'PASSWORD_RECOVERY') {
+      _showResetScreen();
     } else if (event === 'SIGNED_OUT') {
+      clearTimeout(_showAppTimer);
       document.getElementById('reset-screen').style.display = 'none';
       showLogin();
-    } else if (session && !resetVisible) {
-      showApp();
-    } else if (!session && !resetVisible) {
+    } else if (session) {
+      if (_isRecovery) {
+        // Flux implicite : type=recovery détecté dans l'URL dès le départ
+        _showResetScreen();
+      } else {
+        // Connexion normale : on attend 600ms pour laisser PASSWORD_RECOVERY se déclencher en premier
+        clearTimeout(_showAppTimer);
+        _showAppTimer = setTimeout(() => showApp(), 600);
+      }
+    } else {
+      clearTimeout(_showAppTimer);
       showLogin();
     }
   });
