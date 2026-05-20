@@ -114,8 +114,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* TASK DETAIL */
 .ds{padding:0 16px 14px}
 .ds h4{font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
-.sc-row{display:flex;gap:5px}
-.sc{flex:1;padding:9px 3px;border-radius:9px;border:.5px solid var(--border2);font-size:12px;cursor:pointer;background:var(--bg0);color:var(--txt2);text-align:center}
+.sc-row{display:flex;gap:5px;flex-wrap:wrap}
+.sc{flex:1;min-width:80px;padding:8px 6px;border-radius:9px;border:.5px solid var(--border2);font-size:11px;cursor:pointer;background:var(--bg0);color:var(--txt2);text-align:center;white-space:nowrap}
 .ph-zone{border:1.5px dashed var(--border2);border-radius:10px;padding:14px;text-align:center;cursor:pointer;color:var(--txt2);font-size:13px;margin-top:7px}
 .ph-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
 .ph-grid img{width:100%;height:105px;object-fit:cover;border-radius:10px;cursor:pointer}
@@ -386,10 +386,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="gtog" onclick="setG('month',this)">Mois</div>
   </div>
   <div style="display:flex;gap:10px;padding:5px 16px 6px;flex-wrap:wrap;flex-shrink:0" id="gantt-legend">
-    <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2)"><div style="width:10px;height:10px;border-radius:2px;background:#EF9F27"></div>À faire</div>
+    <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2)"><div style="width:10px;height:10px;border-radius:2px;background:#EF9F27"></div>À faire / Assignée</div>
     <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2)"><div style="width:10px;height:10px;border-radius:2px;background:#85B7EB"></div>En cours</div>
-    <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2)"><div style="width:10px;height:10px;border-radius:2px;background:#97C459"></div>Fini</div>
-    <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2)"><div style="width:10px;height:10px;border-radius:2px;background:#F09595"></div>En retard</div>
+    <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2)"><div style="width:10px;height:10px;border-radius:2px;background:#E07050"></div>À vérifier</div>
+    <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2)"><div style="width:10px;height:10px;border-radius:2px;background:#97C459"></div>Terminée</div>
+    <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--txt2)"><div style="width:10px;height:10px;border-radius:2px;background:#F09595"></div>En retard / Refusée</div>
   </div>
   <div class="gantt-wrap" id="gantt-wrap"></div>
 </div>
@@ -473,10 +474,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div id="nt-photo-preview" style="display:none"></div>
   <div class="fg"><label>Zone</label><select id="nt-z"></select></div>
   <div class="fg"><label>Tâche</label><input type="text" id="nt-n" placeholder="Description…"></div>
-  <div class="fg"><label>Statut</label><div class="sc-row" id="nt-stat-row">
+  <div class="fg"><label>Statut</label><div class="sc-row" id="nt-stat-row" style="flex-wrap:wrap;gap:5px">
     <div class="sc" data-s="À faire" onclick="selStat(this)" style="background:var(--amber-bg);color:var(--amber-c);border-color:var(--amber-bd);font-weight:600">À faire</div>
+    <div class="sc" data-s="Assignée" onclick="selStat(this)">Assignée</div>
     <div class="sc" data-s="En cours" onclick="selStat(this)">En cours</div>
-    <div class="sc" data-s="Fini" onclick="selStat(this)">Fini</div>
+    <div class="sc" data-s="À vérifier" onclick="selStat(this)">À vérifier</div>
+    <div class="sc" data-s="Terminée" onclick="selStat(this)">Terminée</div>
   </div></div>
   <div class="fg"><label>Priorité</label><select id="nt-p" onchange="chkDl()">
     <option value="▲ Haute">▲ Haute</option>
@@ -764,7 +767,15 @@ const ZONES = ["Zone Tech Babord","Cab. Capitaine","Accès arrière Bab.","Pont 
 let METIERS = ["Électricien","Composite","Préparateur général","Mateloteur","Charpentier","Plombier"];
 const AVC = ['p','b','c','g','a'];
 const AV_S = {p:{bg:'#EEEDFE',c:'#3C3489'},b:{bg:'#E6F1FB',c:'#0C447C'},c:{bg:'#FAECE7',c:'#712B13'},g:{bg:'#EAF3DE',c:'#27500A'},a:{bg:'#FAEEDA',c:'#633806'}};
-const SS = {'À faire':{bg:'#FAEEDA',c:'#633806',bd:'#FAC775',dot:'#EF9F27'},'En cours':{bg:'#E6F1FB',c:'#0C447C',bd:'#85B7EB',dot:'#378ADD'},'Fini':{bg:'#EAF3DE',c:'#27500A',bd:'#97C459',dot:'#639922'}};
+const SS = {
+  'À faire':    {bg:'#FAEEDA',c:'#633806',bd:'#FAC775',dot:'#EF9F27'},
+  'Assignée':   {bg:'#EEEDFE',c:'#3C3489',bd:'#C4C0F7',dot:'#7F77DD'},
+  'En cours':   {bg:'#E6F1FB',c:'#0C447C',bd:'#85B7EB',dot:'#378ADD'},
+  'À vérifier': {bg:'#FAECE7',c:'#712B13',bd:'#EDAC98',dot:'#E07050'},
+  'Terminée':   {bg:'#EAF3DE',c:'#27500A',bd:'#97C459',dot:'#639922'},
+  'Refusée':    {bg:'#FCEBEB',c:'#791F1F',bd:'#F09595',dot:'#E24B4A'},
+  'Fini':       {bg:'#EAF3DE',c:'#27500A',bd:'#97C459',dot:'#639922'}, // compat legacy
+};
 const EVC = {deadline:{s:'#E24B4A',bg:'#FCEBEB',l:'Deadline'},livraison:{s:'#1D9E75',bg:'#E1F5EE',l:'Livraison'},reunion:{s:'#7F77DD',bg:'#EEEDFE',l:'Réunion'},tache:{s:'#BA7517',bg:'#FAEEDA',l:'Échéance'}};
 
 let contacts = [
@@ -849,33 +860,53 @@ function closeModal(id){document.getElementById(id).style.display='none';}
 
 // ── JOB LIST ──────────────────────────────────────────────────────────────
 function setJTab(t,el){['tasks','metiers','rapide'].forEach(x=>{document.getElementById('jt-'+x).style.display=x===t?'':'none';});document.querySelectorAll('.tabs .tab').forEach(b=>b.classList.remove('on'));el.classList.add('on');if(t==='rapide')initQTags();}
+const DONE_STATS = ['Terminée','Fini'];
+const ACTIVE_STATS = ['À faire','Assignée','En cours','À vérifier'];
 function rStats(){
-  const af=tasks.filter(t=>t.statut==='À faire').length,ec=tasks.filter(t=>t.statut==='En cours').length,fi=tasks.filter(t=>t.statut==='Fini').length;
-  const od=tasks.filter(t=>t.deadline&&dd(t.deadline)<0&&t.statut!=='Fini').length;
-  document.getElementById('stats-bar').innerHTML=[['À faire',af,'#BA7517'],['En cours',ec,'#378ADD'],['Finis',fi,'#639922'],['En retard',od,od>0?'#E24B4A':'var(--txt)']].map(([l,n,c])=>`<div class="stat"><div class="n" style="color:${c}">${n}</div><div class="l">${l}</div></div>`).join('');
-  // B6 — Notification bar dynamique
-  const demain=tasks.filter(t=>t.deadline&&dd(t.deadline)===1&&t.statut!=='Fini');
-  const urgentes=tasks.filter(t=>t.prio==='▲ Haute'&&t.statut!=='Fini');
+  const af=tasks.filter(t=>['À faire','Assignée'].includes(t.statut)).length;
+  const ec=tasks.filter(t=>t.statut==='En cours').length;
+  const av=tasks.filter(t=>t.statut==='À vérifier').length;
+  const fi=tasks.filter(t=>DONE_STATS.includes(t.statut)).length;
+  const od=tasks.filter(t=>t.deadline&&dd(t.deadline)<0&&!DONE_STATS.includes(t.statut)&&t.statut!=='Refusée').length;
+  document.getElementById('stats-bar').innerHTML=[
+    ['À faire',af,'#BA7517'],
+    ['En cours',ec,'#378ADD'],
+    ['À vérifier',av,av>0?'#E07050':'var(--txt)'],
+    ['Terminées',fi,'#639922']
+  ].map(([l,n,c])=>`<div class="stat"><div class="n" style="color:${c}">${n}</div><div class="l">${l}</div></div>`).join('');
+  // Notification bar dynamique
+  const demain=tasks.filter(t=>t.deadline&&dd(t.deadline)===1&&!DONE_STATS.includes(t.statut));
+  const urgentes=tasks.filter(t=>t.prio==='▲ Haute'&&!DONE_STATS.includes(t.statut));
   const nb=document.getElementById('notif-bar'),nbt=document.getElementById('notif-bar-txt');
-  if(od>0||demain.length>0){
+  if(od>0||demain.length>0||av>0){
     let msg='';
+    if(av>0) msg+=`<strong>${av}</strong> tâche${av>1?'s':''} à vérifier`;
+    if(av>0&&od>0) msg+=' — ';
     if(od>0) msg+=`<strong>${od} tâche${od>1?'s':''}</strong> en retard`;
-    if(od>0&&demain.length>0) msg+=' — ';
-    if(demain.length>0) msg+=`<strong>${demain.length}</strong> échéant demain`;
-    if(urgentes.length>0) msg+=` — ${urgentes.length} haute priorité`;
+    if(demain.length>0) msg+=` — <strong>${demain.length}</strong> échéant demain`;
     nbt.innerHTML=msg; nb.style.display='flex';
   } else { nb.style.display='none'; }
 }
 function fTasks(){
-  if(cFilter==='all')return tasks;
-  if(['À faire','En cours','Fini'].includes(cFilter))return tasks.filter(t=>t.statut===cFilter);
-  if(cFilter==='haute')return tasks.filter(t=>t.prio==='▲ Haute');
-  if(cFilter==='retard')return tasks.filter(t=>t.deadline&&dd(t.deadline)<0&&t.statut!=='Fini');
+  if(cFilter==='all') return tasks;
+  if(cFilter==='active') return tasks.filter(t=>ACTIVE_STATS.includes(t.statut));
+  if(['À faire','Assignée','En cours','À vérifier','Terminée','Refusée','Fini'].includes(cFilter)) return tasks.filter(t=>t.statut===cFilter);
+  if(cFilter==='haute') return tasks.filter(t=>t.prio==='▲ Haute');
+  if(cFilter==='retard') return tasks.filter(t=>t.deadline&&dd(t.deadline)<0&&!DONE_STATS.includes(t.statut));
+  if(cFilter==='done') return tasks.filter(t=>DONE_STATS.includes(t.statut));
   return tasks;
 }
 function rFilters(){
-  const pills=[['all','Tout'],['À faire','À faire'],['En cours','En cours'],['Fini','Fini'],['haute','Haute prio'],['retard','En retard']];
-  document.getElementById('filters').innerHTML=pills.map(([v,l])=>`<div class="pill${cFilter===v?' on':''}" onclick="cFilter='${v}';rFilters();rTasks()">${l}</div>`).join('');
+  const av=tasks.filter(t=>t.statut==='À vérifier').length;
+  const pills=[
+    ['all','Tout'],
+    ['active','En cours'],
+    ['À vérifier', av>0?`✓ Vérifier (${av})`:'À vérifier'],
+    ['haute','Haute prio'],
+    ['retard','En retard'],
+    ['done','Terminées'],
+  ];
+  document.getElementById('filters').innerHTML=pills.map(([v,l])=>`<div class="pill${cFilter===v?' on':''}" onclick="cFilter='${v}';rFilters();rTasks()" style="${v==='À vérifier'&&av>0?'background:#FAECE7;color:#712B13;border-color:#EDAC98;font-weight:600':''}">${l}</div>`).join('');
 }
 function rTasks(){
   rFilters();const ft=fTasks();const byZ={};ZONES.forEach(z=>{byZ[z]=[]});ft.forEach(t=>{if(byZ[t.zone])byZ[t.zone].push(t);});
@@ -900,7 +931,7 @@ function rTasks(){
 }
 function rMetiers(){
   document.getElementById('met-grid').innerHTML=METIERS.map(m=>{
-    const mt=tasks.filter(t=>t.metier===m);const fi=mt.filter(t=>t.statut==='Fini').length;
+    const mt=tasks.filter(t=>t.metier===m);const fi=mt.filter(t=>DONE_STATS.includes(t.statut)).length;
     const pct=mt.length?Math.round(fi/mt.length*100):0;const members=contacts.filter(c=>c.metier===m);
     return`<div class="mc"><div style="font-size:12px;font-weight:600;color:var(--txt);margin-bottom:7px">${m}</div>
       <div style="height:5px;background:var(--bg2);border-radius:3px;margin-bottom:4px"><div style="height:5px;border-radius:3px;background:#639922;width:${pct}%"></div></div>
@@ -911,27 +942,87 @@ function rMetiers(){
 }
 
 // ── TASK DETAIL ──────────────────────────────────────────────────────────────
+function canEditTask(t) {
+  if (curRole === 'admin' || curRole === 'resp') return true;
+  const assignedContact = contacts.find(c => c.id === t.assignee);
+  return assignedContact && assignedContact.name === curUserName;
+}
+function allowedTransitions(t) {
+  if (curRole === 'admin' || curRole === 'resp')
+    return ['À faire','Assignée','En cours','À vérifier','Terminée','Refusée'];
+  // Worker : peut uniquement avancer ses propres tâches
+  if (!canEditTask(t)) return [];
+  const prog = {'Assignée':['En cours'],'En cours':['À vérifier']};
+  return prog[t.statut] || [];
+}
+function renderStatBtns(t) {
+  const order = ['À faire','Assignée','En cours','À vérifier','Terminée','Refusée'];
+  const allowed = allowedTransitions(t);
+  return order.map(s => {
+    const ss = SS[s]||{};
+    const active = t.statut === s;
+    const clickable = active || allowed.includes(s);
+    const clickFn = s === 'Refusée' ? `openRefuse(${t.id})` : `chStat('${s}')`;
+    return `<div class="sc" onclick="${clickable?clickFn:''}"
+      style="${active?`background:${ss.bg};color:${ss.c};border-color:${ss.bd};font-weight:600`:`background:var(--bg0);color:var(--txt2)`}${!clickable?';opacity:.35;pointer-events:none':''}"
+    >${s}</div>`;
+  }).join('');
+}
 function openTD(id){
   const t=tasks.find(x=>x.id===id);if(!t)return;curTid=id;
   document.getElementById('td-title').textContent=t.name;
   const u=contacts.find(c=>c.id===t.assignee);const d=t.deadline?dd(t.deadline):null;
   const dlt=t.deadline?d<0?`${fd(t.deadline)} — <span style="color:#E24B4A">${Math.abs(d)}j retard</span>`:d===0?`${fd(t.deadline)} — <span style="color:#BA7517">Aujourd'hui</span>`:`${fd(t.deadline)} — dans ${d}j`:'Non définie';
-  const ss=SS;
+  const hist=(t.history||[]).slice().reverse();
   document.getElementById('td-body').innerHTML=`
-    <div class="ds"><h4>Statut</h4><div class="sc-row">${['À faire','En cours','Fini'].map(s=>`<div class="sc" onclick="chStat('${s}')" style="${t.statut===s?`background:${ss[s].bg};color:${ss[s].c};border-color:${ss[s].bd};font-weight:600`:'background:var(--bg0);color:var(--txt2)'}">${s}</div>`).join('')}</div></div>
+    <div class="ds">
+      <h4>Statut</h4>
+      <div class="sc-row" style="flex-wrap:wrap;gap:5px">${renderStatBtns(t)}</div>
+    </div>
     <div class="ds"><h4>Assigné</h4>${u?`<div style="display:flex;align-items:center;gap:9px">${avEl(u.av,u.ini,30,12)}<div><div style="font-size:13px;font-weight:600;color:var(--txt)">${u.name}</div><div style="font-size:12px;color:var(--txt2)">${u.metier}</div></div></div>`:'<span style="font-size:13px;color:var(--txt3)">Non assigné</span>'}</div>
     ${t.metier?`<div class="ds"><h4>Métier</h4><span class="chip" style="background:#FAECE7;color:#712B13">${t.metier}</span></div>`:''}
     <div class="ds"><h4>Échéance</h4><p style="font-size:13px;color:${d!==null&&d<0?'#E24B4A':'var(--txt)'}">${dlt}</p></div>
     <div class="ds"><h4>Photos ${t.photos.length>0?'('+t.photos.length+')':''}</h4>
-      ${t.photos.length>0?`<div class="ph-grid">${t.photos.map((src,i)=>`<img src="${src}" onclick="vPhoto('${src}')" alt="Photo">`).join('')}</div>`:''} 
+      ${t.photos.length>0?`<div class="ph-grid">${t.photos.map((src,i)=>`<img src="${src}" onclick="vPhoto('${src}')" alt="Photo">`).join('')}</div>`:''}
       <div class="ph-zone" onclick="document.getElementById('ph-inp').click()"><i class="ti ti-camera-plus" style="font-size:18px;margin-right:6px" aria-hidden="true"></i>Ajouter une photo</div>
       <input type="file" id="ph-inp" accept="image/*" multiple style="display:none" onchange="addPh(event)">
     </div>
     <div class="ds"><h4>Notes</h4><textarea class="note-ta" id="d-notes" placeholder="Notes de chantier…">${t.notes||''}</textarea><button onclick="svNote()" style="font-size:12px;padding:6px 13px;border-radius:9px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);cursor:pointer;margin-top:6px;font-family:inherit"><i class="ti ti-check" aria-hidden="true"></i> Enregistrer</button></div>
+    ${hist.length?`<div class="ds"><h4>Historique</h4><div style="display:flex;flex-direction:column;gap:7px">${hist.map(h=>{const ss=SS[h.to]||{};return`<div style="display:flex;align-items:flex-start;gap:9px;padding:8px 10px;background:var(--bg1);border-radius:10px"><div style="width:8px;height:8px;border-radius:50%;background:${ss.dot||'#aaa'};flex-shrink:0;margin-top:4px"></div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--txt)">${h.from} → ${h.to}</div>${h.note?`<div style="font-size:11px;color:var(--txt2);margin-top:2px">${h.note}</div>`:''}<div style="font-size:10px;color:var(--txt3);margin-top:2px">${h.by||'—'} · ${h.date||''}</div></div></div>`;}).join('')}</div></div>`:''}
     <div class="ds"><h4>Partager</h4><div style="display:flex;gap:7px"><button class="shr-btn" onclick="shrTask()"><i class="ti ti-share" aria-hidden="true"></i> Partager</button><button class="shr-btn" onclick="navigator.clipboard.writeText('nomade7.app/t/${id}').then(()=>alert('Lien copié'))"><i class="ti ti-link" aria-hidden="true"></i> Lien</button></div></div>
   `;go('sc-td');
 }
-function chStat(s){const t=tasks.find(x=>x.id===curTid);if(!t)return;t.statut=s;saveAll();const ss=SS;document.querySelectorAll('.sc').forEach(b=>{const bs=b.textContent.trim();if(bs===s){b.style.background=ss[s].bg;b.style.color=ss[s].c;b.style.borderColor=ss[s].bd;b.style.fontWeight='600';}else{b.style.background='var(--bg0)';b.style.color='var(--txt2)';b.style.borderColor='var(--border2)';b.style.fontWeight='400';}});rStats();}
+function pushHistory(t, from, to, note) {
+  if (!t.history) t.history = [];
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) + ' ' + now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  t.history.push({ from, to, by: curUserName || 'Utilisateur', date: dateStr, note: note || '' });
+}
+function chStat(s){
+  const t=tasks.find(x=>x.id===curTid);if(!t)return;
+  const from = t.statut;
+  t.statut=s;
+  pushHistory(t, from, s, '');
+  saveAll();
+  openTD(curTid); // refresh detail avec nouveau statut + historique
+  rStats();
+}
+function openRefuse(id) {
+  curTid = id;
+  document.getElementById('refuse-note').value = '';
+  document.getElementById('m-refuse').style.display = 'flex';
+}
+function confirmRefuse() {
+  const t = tasks.find(x => x.id === curTid); if (!t) return;
+  const note = document.getElementById('refuse-note').value.trim();
+  const from = t.statut;
+  t.statut = 'Refusée';
+  pushHistory(t, from, 'Refusée', note || 'Aucun motif');
+  saveAll();
+  document.getElementById('m-refuse').style.display = 'none';
+  openTD(curTid);
+  rStats();
+}
 function svNote(){const t=tasks.find(x=>x.id===curTid);if(t){t.notes=document.getElementById('d-notes').value;saveAll();}alert('Note enregistrée.');}
 function addPh(e){const t=tasks.find(x=>x.id===curTid);if(!t)return;Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{t.photos.push(ev.target.result);saveAll();openTD(curTid);};r.readAsDataURL(f);});}
 function vPhoto(src){const ov=document.createElement('div');ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center';ov.innerHTML=`<img src="${src}" style="max-width:100%;max-height:100%;object-fit:contain">`;ov.onclick=()=>document.body.removeChild(ov);document.body.appendChild(ov);}
@@ -1798,6 +1889,17 @@ if ('serviceWorker' in navigator) {
   </div>
 
 </div>
+
+<!-- MODAL MOTIF DE REFUS -->
+<div id="m-refuse" class="ov" style="display:none"><div class="sh" style="max-width:380px;padding:22px">
+  <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:6px">Refuser la tâche</div>
+  <div style="font-size:13px;color:var(--txt2);margin-bottom:14px">Indiquez le motif — il sera visible dans l'historique et notifié à l'assigné.</div>
+  <div class="fg" style="margin-bottom:16px"><label>Motif <span style="color:var(--txt3)">(optionnel)</span></label><textarea id="refuse-note" placeholder="Ex: matériau non conforme, zone non accessible…" style="min-height:80px"></textarea></div>
+  <div style="display:flex;gap:10px">
+    <button onclick="document.getElementById('m-refuse').style.display='none'" style="flex:1;padding:12px;border-radius:11px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);font-size:14px;cursor:pointer;font-family:inherit">Annuler</button>
+    <button onclick="confirmRefuse()" style="flex:1;padding:12px;border-radius:11px;background:var(--red-bg);color:var(--red-c);border:.5px solid var(--red-bd);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-x"></i> Confirmer le refus</button>
+  </div>
+</div></div>
 
 <!-- MODAL CHOIX MODE DE SAISIE -->
 <div id="m-mode-picker" class="ov" style="display:none;z-index:10000"><div class="sh" style="max-width:420px;padding:24px">
