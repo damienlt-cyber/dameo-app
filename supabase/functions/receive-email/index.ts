@@ -13,10 +13,25 @@ serve(async (req) => {
   const SUPA_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   try {
-    // user_id passé en query param : ?user_id=xxx
-    const url     = new URL(req.url);
-    const userId  = url.searchParams.get("user_id");
-    if (!userId) throw new Error("user_id requis en paramètre d'URL");
+    const url    = new URL(req.url);
+    const userId = url.searchParams.get("user_id");
+    const token  = url.searchParams.get("token");
+
+    if (!userId && !token) throw new Error("user_id ou token requis");
+
+    const supa = createClient(SUPA_URL, SUPA_KEY);
+
+    // Résoudre le user_id depuis le token si nécessaire
+    let resolvedUserId = userId;
+    if (!resolvedUserId && token) {
+      const { data, error } = await supa
+        .from("user_profiles")
+        .select("id")
+        .eq("inbox_token", token)
+        .single();
+      if (error || !data) throw new Error("Token inconnu");
+      resolvedUserId = data.id;
+    }
 
     let from_addr = "expediteur@inconnu.fr";
     let subject   = "Sans objet";
@@ -25,24 +40,24 @@ serve(async (req) => {
     const ct = req.headers.get("content-type") || "";
 
     if (ct.includes("application/json")) {
-      // Zapier / Make.com / appel direct
       const data = await req.json();
       from_addr  = data.from || data.sender   || from_addr;
       subject    = data.subject               || subject;
       body       = data.body || data.text || data.html || body;
     } else if (ct.includes("multipart/form-data") || ct.includes("application/x-www-form-urlencoded")) {
-      // Mailgun / SendGrid / Postmark inbound
+      // Mailgun / SendGrid / Postmark / Cloudflare Email Worker
       const form = await req.formData();
-      from_addr  = form.get("from")?.toString()                      || from_addr;
-      subject    = form.get("subject")?.toString()                   || subject;
+      from_addr  = form.get("from")?.toString()
+               || form.get("sender")?.toString()          || from_addr;
+      subject    = form.get("subject")?.toString()        || subject;
       body       = form.get("body-plain")?.toString()
                || form.get("text")?.toString()
-               || form.get("body")?.toString()                       || body;
+               || form.get("stripped-text")?.toString()
+               || form.get("body")?.toString()            || body;
     }
 
-    const supa = createClient(SUPA_URL, SUPA_KEY);
     const { error } = await supa.from("emails_inbox").insert({
-      user_id:   userId,
+      user_id:   resolvedUserId,
       from_addr,
       subject,
       body,

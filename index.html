@@ -639,7 +639,7 @@ let fabPhotoFile = null;  // File object pour upload Supabase Storage
 let _inviteToken = null;
 let _inviteRole  = 'worker';
 // Profil étendu
-let curProfile = { avatar_url:null, logo_url:null, metier:'', phone:'', notif_start:'07:30', notif_end:'18:00' };
+let curProfile = { avatar_url:null, logo_url:null, metier:'', phone:'', notif_start:'07:30', notif_end:'18:00', inbox_token:null };
 
 // ── APPARENCE ──────────────────────────────────────────────────────────────
 const WP_DATA = [
@@ -755,8 +755,9 @@ async function loadUserProfile() {
       curProfile.logo_url    = profile.logo_url    || null;
       curProfile.metier      = profile.metier      || '';
       curProfile.phone       = profile.phone       || '';
-      curProfile.notif_start = profile.notif_start || '07:30';
-      curProfile.notif_end   = profile.notif_end   || '18:00';
+      curProfile.notif_start  = profile.notif_start  || '07:30';
+      curProfile.notif_end    = profile.notif_end    || '18:00';
+      curProfile.inbox_token  = profile.inbox_token  || null;
     } else {
       // Aucun profil — on le crée. Premier utilisateur = admin.
       const { count } = await db.from('user_profiles')
@@ -1273,39 +1274,176 @@ function setEmailTab(tab,el){
   if(tab==='boite')rInboxSetup();
 }
 async function rInboxSetup(){
-  const webhookUrl=`https://owkavqtcmrenazfatbny.supabase.co/functions/v1/receive-email?user_id=${curUserId||'VOTRE_USER_ID'}`;
+  const token = curProfile.inbox_token;
+  const webhookUrl = token
+    ? `https://owkavqtcmrenazfatbny.supabase.co/functions/v1/receive-email?token=${token}`
+    : `https://owkavqtcmrenazfatbny.supabase.co/functions/v1/receive-email?user_id=${curUserId||'...'}`;
+  // Adresse email "bannette" — nécessite un domaine configuré
+  const bannetteEmail = token ? `nomade7-${token.slice(0,8)}@votredomaine.fr` : '—';
+
   document.getElementById('inbox-setup-card').innerHTML=`
-    <div style="background:var(--blue-bg);border:.5px solid var(--blue-bd);border-radius:14px;padding:16px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <i class="ti ti-mail-forward" style="font-size:18px;color:#378ADD"></i>
-        <span style="font-size:14px;font-weight:600;color:var(--blue-c)">Transférez vos emails vers l'app</span>
+    <!-- Adresse de réception personnelle -->
+    <div style="background:linear-gradient(135deg,#0C2540,#0A3A5C);border-radius:16px;padding:18px;color:#fff">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <i class="ti ti-inbox" style="font-size:22px;opacity:.9"></i>
+        <span style="font-size:15px;font-weight:700">Votre adresse bannette</span>
       </div>
-      <p style="font-size:13px;color:var(--blue-c);line-height:1.6;margin-bottom:12px">
-        Configurez une règle de transfert dans votre client email (Gmail, Outlook…) ou utilisez Zapier/Make.com pour envoyer les emails de vos prestataires vers l'app. Nomade 7 en extrait automatiquement les tâches et échéances via Claude.
+      <p style="font-size:12px;opacity:.8;line-height:1.6;margin-bottom:14px">
+        Transférez manuellement les emails que vous voulez traiter (factures fournisseurs, dates de livraison, nouvelles tâches…). L'app ne reçoit que ce que vous lui envoyez.
       </p>
-      <div style="font-size:11px;font-weight:600;color:var(--blue-c);margin-bottom:5px">URL de réception (webhook) :</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <div style="flex:1;background:var(--bg0);border:.5px solid var(--blue-bd);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--txt2);word-break:break-all;font-family:monospace">${webhookUrl}</div>
-        <button onclick="navigator.clipboard.writeText('${webhookUrl}').then(()=>showToast('URL copiée !'))" style="padding:8px 10px;border-radius:8px;border:.5px solid var(--blue-bd);background:var(--bg0);color:#378ADD;font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit"><i class="ti ti-copy"></i></button>
+      <div style="background:rgba(255,255,255,.1);border-radius:10px;padding:12px 14px;margin-bottom:10px">
+        <div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Votre token unique</div>
+        <div style="font-family:monospace;font-size:13px;word-break:break-all;opacity:.95">${token||'— générer un token (voir SQL)'}</div>
       </div>
-      <div style="margin-top:10px;font-size:11px;color:var(--blue-c);line-height:1.6">
-        <strong>3 façons de l'utiliser :</strong><br>
-        1. <strong>Gmail</strong> : Filtres → Transférer vers (via Zapier ou Make)<br>
-        2. <strong>Zapier/Make</strong> : déclencheur Email → POST vers cette URL<br>
-        3. <strong>Manuel</strong> : collez le contenu ci-dessous ↓
+      <div style="font-size:12px;opacity:.75;line-height:1.7">
+        <strong style="opacity:1">Comment ça marche :</strong><br>
+        1. Reçois un email d'un fournisseur / prestataire<br>
+        2. Dans ton client mail : <strong style="opacity:1">Transférer</strong> → colle l'adresse ci-dessous<br>
+        3. L'email apparaît ici → Claude l'analyse automatiquement
       </div>
     </div>
-    <!-- Formulaire import manuel -->
-    <div>
-      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;margin-top:4px">Importer un email manuellement</div>
-      <div class="fg"><label>Expéditeur</label><input type="text" id="mi-from" placeholder="fournisseur@exemple.com"></div>
-      <div class="fg"><label>Objet</label><input type="text" id="mi-subject" placeholder="Livraison batterie Mastervolt…"></div>
-      <div class="fg" style="margin-bottom:0"><label>Corps du mail</label><textarea id="mi-body" placeholder="Copiez-collez le contenu du mail…" style="height:100px"></textarea></div>
-      <button onclick="submitManualEmail()" class="btn-p" style="margin-top:10px">Importer cet email</button>
+
+    <!-- 2 méthodes -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <!-- Méthode A : transfert email via domaine -->
+      <div style="background:var(--bg1);border:.5px solid var(--border2);border-radius:12px;padding:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-mail" style="color:#378ADD"></i> Avec votre domaine</div>
+        <p style="font-size:11px;color:var(--txt2);line-height:1.6;margin-bottom:8px">Configurez <strong>Cloudflare Email Routing</strong> (gratuit) sur votre domaine → l'email reçu appelle le webhook.</p>
+        <button onclick="showCloudflareTuto()" style="width:100%;padding:7px;border-radius:8px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt2);font-size:11px;cursor:pointer;font-family:inherit"><i class="ti ti-book"></i> Voir le tuto</button>
+      </div>
+      <!-- Méthode B : glisser-déposer .eml -->
+      <div style="background:var(--bg1);border:.5px solid var(--border2);border-radius:12px;padding:14px">
+        <div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:6px;display:flex;align-items:center;gap:6px"><i class="ti ti-file-import" style="color:#6C63FF"></i> Glisser-déposer</div>
+        <p style="font-size:11px;color:var(--txt2);line-height:1.6;margin-bottom:8px">Enregistrez l'email en <strong>.eml</strong> depuis votre client mail et déposez-le ici.</p>
+        <button onclick="document.getElementById('eml-inp').click()" style="width:100%;padding:7px;border-radius:8px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt2);font-size:11px;cursor:pointer;font-family:inherit"><i class="ti ti-upload"></i> Choisir .eml</button>
+        <input type="file" id="eml-inp" accept=".eml,message/rfc822" style="display:none" onchange="importEml(this)">
+      </div>
     </div>
+
+    <!-- Zone drop .eml -->
+    <div id="eml-drop-zone" ondrop="handleEmlDrop(event)" ondragover="event.preventDefault();this.style.borderColor='var(--txt)'" ondragleave="this.style.borderColor='var(--border2)'"
+      style="border:2px dashed var(--border2);border-radius:12px;padding:22px;text-align:center;cursor:pointer;transition:border-color .2s" onclick="document.getElementById('eml-inp').click()">
+      <i class="ti ti-mail-down" style="font-size:30px;color:var(--txt3);display:block;margin-bottom:6px"></i>
+      <div style="font-size:13px;color:var(--txt2);font-weight:500">Déposez un fichier .eml ici</div>
+      <div style="font-size:11px;color:var(--txt3);margin-top:3px">ou dans Gmail/Outlook : Fichier → Enregistrer sous → .eml</div>
+    </div>
+
+    <!-- Import manuel rapide -->
+    <details style="border:.5px solid var(--border2);border-radius:12px;overflow:hidden">
+      <summary style="padding:12px 14px;font-size:13px;font-weight:600;color:var(--txt);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-pencil" style="color:var(--txt2)"></i> Saisie manuelle rapide
+        <i class="ti ti-chevron-down" style="margin-left:auto;color:var(--txt3);font-size:13px"></i>
+      </summary>
+      <div style="padding:14px;border-top:.5px solid var(--border)">
+        <div class="fg"><label>De</label><input type="text" id="mi-from" placeholder="fournisseur@exemple.com"></div>
+        <div class="fg"><label>Objet</label><input type="text" id="mi-subject" placeholder="Livraison batterie Mastervolt — confirmation"></div>
+        <div class="fg" style="margin-bottom:0"><label>Corps du mail</label><textarea id="mi-body" placeholder="Collez le contenu du mail…" style="height:90px"></textarea></div>
+        <button onclick="submitManualEmail()" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;background:var(--txt);color:var(--bg0);border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-plus"></i> Ajouter à la bannette</button>
+      </div>
+    </details>
+
+    <!-- URL webhook (pour techniciens) -->
+    <details style="border:.5px solid var(--border2);border-radius:12px;overflow:hidden">
+      <summary style="padding:12px 14px;font-size:12px;color:var(--txt2);cursor:pointer;list-style:none;display:flex;align-items:center;gap:8px">
+        <i class="ti ti-code" style="color:var(--txt3)"></i> URL webhook (pour Cloudflare / Zapier)
+        <i class="ti ti-chevron-down" style="margin-left:auto;color:var(--txt3);font-size:13px"></i>
+      </summary>
+      <div style="padding:12px 14px;border-top:.5px solid var(--border)">
+        <div style="display:flex;gap:8px;align-items:center">
+          <div style="flex:1;background:var(--bg1);border:.5px solid var(--border2);border-radius:8px;padding:8px 10px;font-size:10px;color:var(--txt3);word-break:break-all;font-family:monospace">${webhookUrl}</div>
+          <button onclick="navigator.clipboard.writeText('${webhookUrl}').then(()=>showToast('URL copiée !'))" style="padding:8px 10px;border-radius:8px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt2);font-size:12px;cursor:pointer;flex-shrink:0"><i class="ti ti-copy"></i></button>
+        </div>
+      </div>
+    </details>
   `;
-  // Charger les emails reçus via webhook
   await loadInboxEmails();
+}
+function showCloudflareTuto(){
+  const old=document.getElementById('m-cf-tuto');if(old)old.remove();
+  const m=document.createElement('div');m.id='m-cf-tuto';m.className='ov';m.style.zIndex='400';
+  m.innerHTML=`<div class="sh" style="max-width:520px;padding:22px;max-height:80vh;overflow-y:auto">
+    <div style="font-size:16px;font-weight:700;margin-bottom:4px">Configurer Cloudflare Email Routing</div>
+    <div style="font-size:12px;color:var(--txt2);margin-bottom:16px">Gratuit · 5 min · Nécessite un domaine sur Cloudflare</div>
+    ${[
+      ['1','Avoir un domaine sur Cloudflare','Exemple : dameo.fr ou nomade7.fr (enregistreur Cloudflare ou NS pointés vers Cloudflare)'],
+      ['2','Activer Email Routing','Dashboard Cloudflare → votre domaine → Email → Email Routing → Activer'],
+      ['3','Créer une adresse de réception','Ajouter une règle : <strong>bannette@votredomaine.fr</strong> → Action : Envoyer vers un Worker'],
+      ['4','Créer le Worker email','Workers & Pages → Nouveau Worker → coller le code fourni ci-dessous → Déployer'],
+      ['5','Tester','Transférez n\'importe quel email vers bannette@votredomaine.fr → il apparaît dans la bannette en quelques secondes'],
+    ].map(([n,t,d])=>`<div style="display:flex;gap:12px;margin-bottom:14px">
+      <div style="width:26px;height:26px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${n}</div>
+      <div><div style="font-size:13px;font-weight:600;color:var(--txt)">${t}</div><div style="font-size:12px;color:var(--txt2);margin-top:2px;line-height:1.5">${d}</div></div>
+    </div>`).join('')}
+    <div style="background:var(--bg1);border:.5px solid var(--border2);border-radius:10px;padding:12px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);margin-bottom:6px">Code du Worker Cloudflare :</div>
+      <pre style="font-size:10px;color:var(--txt3);white-space:pre-wrap;line-height:1.5">export default {
+  async email(message, env) {
+    const from = message.from;
+    const subject = message.headers.get('subject') || '';
+    let body = '';
+    const reader = message.raw.getReader();
+    while(true){ const {done,value}=await reader.read(); if(done)break; body+=new TextDecoder().decode(value); }
+    // Extraire le texte brut (simplification)
+    const textPart = body.split('\\n\\n').slice(1).join('\\n\\n').slice(0,3000);
+    await fetch('${`https://owkavqtcmrenazfatbny.supabase.co/functions/v1/receive-email?token=${curProfile.inbox_token||'VOTRE_TOKEN'}`}', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({from, subject, body: textPart})
+    });
+  }
+}</pre>
+      <button onclick="navigator.clipboard.writeText(document.querySelector('#m-cf-tuto pre').textContent).then(()=>showToast('Code copié !'))" style="margin-top:8px;padding:6px 12px;border-radius:7px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt2);font-size:11px;cursor:pointer;font-family:inherit"><i class="ti ti-copy"></i> Copier le code</button>
+    </div>
+    <button onclick="document.getElementById('m-cf-tuto').remove()" style="width:100%;padding:11px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Compris !</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+}
+function handleEmlDrop(e){
+  e.preventDefault();
+  document.getElementById('eml-drop-zone').style.borderColor='var(--border2)';
+  const file=[...e.dataTransfer.files].find(f=>f.name.endsWith('.eml')||f.type==='message/rfc822');
+  if(!file) return showToast('Fichier .eml requis');
+  parseEmlFile(file);
+}
+function importEml(input){
+  const file=input.files?.[0];if(!file)return;
+  parseEmlFile(file);
+  input.value='';
+}
+function parseEmlFile(file){
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const raw=e.target.result;
+    // Parser les headers
+    const lines=raw.replace(/\r\n/g,'\n').split('\n');
+    let from='',subject='',body='',inBody=false,headersDone=false;
+    for(const line of lines){
+      if(!headersDone&&line===''){ headersDone=true; inBody=true; continue; }
+      if(!headersDone){
+        if(/^from:/i.test(line)) from=line.replace(/^from:\s*/i,'').trim();
+        else if(/^subject:/i.test(line)) subject=line.replace(/^subject:\s*/i,'').trim();
+      } else {
+        // Skip MIME boundaries, take only readable text
+        if(line.startsWith('--')||line.startsWith('Content-')||line.startsWith('MIME')) continue;
+        body+=line+'\n';
+      }
+    }
+    body=body.trim().slice(0,4000);
+    if(!subject&&!body) return showToast('Impossible de lire le fichier .eml');
+    // Pré-remplir le formulaire manuel
+    const elFrom=document.getElementById('mi-from');
+    const elSub=document.getElementById('mi-subject');
+    const elBody=document.getElementById('mi-body');
+    if(elFrom) elFrom.value=from;
+    if(elSub) elSub.value=subject;
+    if(elBody) elBody.value=body;
+    // Ouvrir l'accordéon manuel si fermé
+    const det=document.querySelector('#inbox-setup-card details');
+    if(det) det.open=true;
+    showToast('Email .eml chargé — vérifiez puis cliquez "Ajouter à la bannette"');
+  };
+  reader.readAsText(file,'utf-8');
 }
 async function loadInboxEmails(){
   const el=document.getElementById('inbox-emails-list');if(!el)return;
