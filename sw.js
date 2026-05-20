@@ -1,4 +1,4 @@
-const CACHE = 'nomade7-v3';
+const CACHE = 'nomade7-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -16,6 +16,32 @@ self.addEventListener('activate', e => {
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
     ).then(() => self.clients.claim())
+  );
+});
+
+// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────
+self.addEventListener('push', e => {
+  const data = e.data ? e.data.json() : {};
+  const title   = data.title || 'Nomade 7';
+  const options = {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: data.tag || 'nomade7',
+    renotify: true,
+    data: { url: data.url || '/' }
+  };
+  e.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
+      const existing = cs.find(c => c.url.startsWith(self.registration.scope));
+      if (existing) return existing.focus();
+      return clients.openWindow(e.notification.data?.url || '/');
+    })
   );
 });
 

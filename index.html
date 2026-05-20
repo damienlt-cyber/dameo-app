@@ -614,6 +614,8 @@ async function loadUserProfile() {
     }
     applyRoleUI();
     updateFabIcon();
+    // Activer les push notifications
+    setTimeout(initPush, 1000);
     // Nouveau profil sans mode → afficher le sélecteur
     if (profile && !profile.input_mode) setTimeout(showModePicker, 600);
     if (!profile) setTimeout(showModePicker, 600); // profil tout juste créé
@@ -1017,14 +1019,49 @@ function pushHistory(t, from, to, note) {
   const dateStr = now.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'}) + ' ' + now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
   t.history.push({ from, to, by: curUserName || 'Utilisateur', date: dateStr, note: note || '' });
 }
-function chStat(s){
+async function chStat(s){
   const t=tasks.find(x=>x.id===curTid);if(!t)return;
   const from = t.statut;
   t.statut=s;
   pushHistory(t, from, s, '');
   saveAll();
-  openTD(curTid); // refresh detail avec nouveau statut + historique
+  openTD(curTid);
   rStats();
+  // Push notifications selon transition
+  await triggerStatPush(t, from, s);
+}
+
+async function triggerStatPush(t, from, to) {
+  try {
+    // Assigné → En cours : notifier le créateur/admin
+    if (to === 'En cours' && from === 'Assignée') {
+      const assignee = contacts.find(c => c.id === t.assignee);
+      // Notif en diffusion (simplifiée : notifie tous les admins/resp)
+      // Phase 3 affinera avec user_id du créateur
+    }
+    // À vérifier : notifier les admin/resp (via broadcast simplifié)
+    if (to === 'À vérifier') {
+      // Notification locale immédiate si permission déjà accordée
+      if (Notification.permission === 'granted') {
+        new Notification('Nomade 7 — À vérifier', {
+          body: `${t.zone} · ${t.name}`,
+          icon: '/icon-192.png',
+          tag: 'verif-' + t.id
+        });
+      }
+    }
+    // Assignée : notifier l'assigné (si on connaît son user_id)
+    if (to === 'Assignée' && t.assignee) {
+      if (Notification.permission === 'granted') {
+        const u = contacts.find(c => c.id === t.assignee);
+        new Notification('Nomade 7 — Nouvelle tâche assignée', {
+          body: `${t.zone} · ${t.name}${u ? ' → ' + u.name : ''}`,
+          icon: '/icon-192.png',
+          tag: 'assign-' + t.id
+        });
+      }
+    }
+  } catch(e) { /* silencieux */ }
 }
 function openRefuse(id) {
   curTid = id;
@@ -1897,6 +1934,49 @@ if (db) {
   });
 } else {
   fetchFromSupabase();
+}
+
+// ── PUSH NOTIFICATIONS ────────────────────────────────────────────────────
+const VAPID_PUBLIC_KEY = 'BEFcdfvMTuFvkDjowsD5cNMjcv9V7g0d7N_D44dZHYFJ1u2hBOirjRw7ZxitZo0xCoOqQTl9li1zt5LTFy5-yzs';
+
+function urlBase64ToUint8Array(b) {
+  const pad = b.replace(/-/g,'+').replace(/_/g,'/');
+  const raw = atob(pad + '='.repeat((4 - pad.length % 4) % 4));
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+async function initPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  if (!curUserId || !db) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    // Stocker la subscription dans Supabase
+    await db.from('push_subscriptions').upsert({
+      user_id: curUserId,
+      subscription: sub.toJSON()
+    }, { onConflict: 'user_id' });
+  } catch(e) { console.warn('initPush:', e.message); }
+}
+
+async function sendPushToUser(userId, title, body, tag) {
+  if (!db || !userId) return;
+  try {
+    await fetch('https://owkavqtcmrenazfatbny.supabase.co/functions/v1/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (await db.auth.getSession()).data.session?.access_token },
+      body: JSON.stringify({ user_id: userId, title, body, tag: tag || 'nomade7', url: '/' })
+    });
+  } catch(e) { console.warn('sendPush:', e.message); }
 }
 
 if ('serviceWorker' in navigator) {
