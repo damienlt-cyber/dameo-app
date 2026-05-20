@@ -197,6 +197,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   #settings-body{padding:16px 20px}
 }
 
+/* ── APPARENCE : WALLPAPER + SIDEBAR ACCENT ── */
+#wallpaper-layer{position:fixed;inset:0;z-index:-1;background-size:cover;background-position:center;background-attachment:fixed;transition:background .5s}
+body.has-wallpaper .phone{background:transparent!important}
+body.has-wallpaper .screen.active{background:var(--bg0)}
+/* Sidebar accent — CSS custom props injectées par JS */
+@media(min-width:900px){
+  .bnav{background:var(--sidebar-bg,var(--bg0))!important;transition:background .3s}
+  .bnav::before{color:var(--sidebar-txt,var(--txt))!important}
+  .bnav button{color:var(--sidebar-txt2,var(--txt3))!important}
+  .bnav button.on{background:var(--sidebar-active,var(--bg2))!important;color:var(--sidebar-txt,var(--txt))!important}
+  .bnav button:hover:not(.on){background:var(--sidebar-active,var(--bg2))!important;opacity:.5}
+  .bnav button i{color:inherit!important}
+}
+body.has-wallpaper .bnav{background:var(--sidebar-bg,rgba(10,20,38,.82))!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+/* Sélecteurs d'apparence dans le profil */
+.wp-thumb{width:48px;height:48px;border-radius:10px;border:2px solid transparent;cursor:pointer;transition:all .15s;background-size:cover;background-position:center;flex-shrink:0}
+.wp-thumb.sel{border-color:var(--txt);box-shadow:0 0 0 3px rgba(0,0,0,.15)}
+.accent-dot{width:36px;height:36px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;transition:all .15s;flex-shrink:0}
+.accent-dot.sel{border-color:var(--txt);box-shadow:0 0 0 3px rgba(0,0,0,.15)}
+
 /* ── PHASE 3 — DESKTOP 3 COLONNES ── */
 #jobs-left{display:flex;flex-direction:column;flex:1;overflow:hidden}
 #jobs-right{display:none}
@@ -225,6 +245,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </style>
 </head>
 <body>
+<div id="wallpaper-layer"></div>
 <div class="phone">
 
 <!-- JOB LIST -->
@@ -620,6 +641,66 @@ let _inviteRole  = 'worker';
 // Profil étendu
 let curProfile = { avatar_url:null, logo_url:null, metier:'', phone:'', notif_start:'07:30', notif_end:'18:00' };
 
+// ── APPARENCE ──────────────────────────────────────────────────────────────
+const WP_DATA = [
+  {id:'none',  label:'Défaut',   thumb:'var(--bg0)',   value:''},
+  {id:'c1',    label:'Marine',   thumb:'#0A1628',      value:'#0A1628'},
+  {id:'c2',    label:'Océan',    thumb:'#0C2540',      value:'#0C2540'},
+  {id:'c3',    label:'Forêt',    thumb:'#0E2A1A',      value:'#0E2A1A'},
+  {id:'c4',    label:'Ardoise',  thumb:'#1C2333',      value:'#1C2333'},
+  {id:'c5',    label:'Violet',   thumb:'#1A1030',      value:'#1A1030'},
+  {id:'p1',    label:'Régate',   thumb:'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=1920&q=80&auto=format&fit=crop'},
+  {id:'p2',    label:'Voilier',  thumb:'https://images.unsplash.com/photo-1559524284-a0c7ec04cf11?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1559524284-a0c7ec04cf11?w=1920&q=80&auto=format&fit=crop'},
+  {id:'p3',    label:'Large',    thumb:'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1920&q=80&auto=format&fit=crop'},
+  {id:'p4',    label:'Coucher',  thumb:'https://images.unsplash.com/photo-1519659528534-7fd733a832a0?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1519659528534-7fd733a832a0?w=1920&q=80&auto=format&fit=crop'},
+  {id:'p5',    label:'Sillage',  thumb:'https://images.unsplash.com/photo-1488557836843-4066890e4b0a?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1488557836843-4066890e4b0a?w=1920&q=80&auto=format&fit=crop'},
+];
+const ACC_DATA = [
+  {id:'default', label:'Auto',    dot:'var(--bg2)',  bg:'',        txt:'',        txt2:'',        active:''},
+  {id:'navy',    label:'Marine',  dot:'#0C1E35',    bg:'#0C1E35', txt:'#E8F0FA', txt2:'#7A9BBF', active:'rgba(255,255,255,.13)'},
+  {id:'ocean',   label:'Océan',   dot:'#0A2844',    bg:'#0A2844', txt:'#DFF0FF', txt2:'#6AAECB', active:'rgba(255,255,255,.13)'},
+  {id:'forest',  label:'Forêt',   dot:'#0E2A1A',    bg:'#0E2A1A', txt:'#D4F0E0', txt2:'#5EA870', active:'rgba(255,255,255,.13)'},
+  {id:'slate',   label:'Ardoise', dot:'#222B3A',    bg:'#222B3A', txt:'#DCE4F0', txt2:'#7B8FAE', active:'rgba(255,255,255,.12)'},
+  {id:'dusk',    label:'Violet',  dot:'#1E1240',    bg:'#1E1240', txt:'#E0D8FF', txt2:'#9080C8', active:'rgba(255,255,255,.13)'},
+  {id:'teak',    label:'Acajou',  dot:'#2E1A0A',    bg:'#2E1A0A', txt:'#F5E8D0', txt2:'#B08860', active:'rgba(255,255,255,.14)'},
+];
+let curWallpaper = localStorage.getItem('wp') || '';
+let curSidebarAcc = localStorage.getItem('sidebarAcc') || 'default';
+
+function applyWallpaper(value, save=true){
+  curWallpaper = value;
+  if(save) localStorage.setItem('wp', value);
+  const layer = document.getElementById('wallpaper-layer');
+  if(!layer) return;
+  if(!value){
+    layer.style.backgroundImage=''; layer.style.backgroundColor='';
+    document.body.classList.remove('has-wallpaper');
+  } else if(value.startsWith('http')){
+    layer.style.backgroundImage=`url(${value})`; layer.style.backgroundColor='';
+    document.body.classList.add('has-wallpaper');
+  } else {
+    layer.style.backgroundImage=''; layer.style.backgroundColor=value;
+    document.body.classList.add('has-wallpaper');
+  }
+  // Mettre à jour les thumbs dans le profil si ouverts
+  document.querySelectorAll('.wp-thumb').forEach(el=>el.classList.toggle('sel', el.dataset.value===value));
+}
+function applySidebarAcc(id, save=true){
+  curSidebarAcc = id;
+  if(save) localStorage.setItem('sidebarAcc', id);
+  const acc = ACC_DATA.find(a=>a.id===id) || ACC_DATA[0];
+  const r = document.documentElement;
+  if(!acc.bg){
+    ['--sidebar-bg','--sidebar-txt','--sidebar-txt2','--sidebar-active'].forEach(p=>r.style.removeProperty(p));
+  } else {
+    r.style.setProperty('--sidebar-bg', acc.bg);
+    r.style.setProperty('--sidebar-txt', acc.txt);
+    r.style.setProperty('--sidebar-txt2', acc.txt2);
+    r.style.setProperty('--sidebar-active', acc.active);
+  }
+  document.querySelectorAll('.accent-dot').forEach(el=>el.classList.toggle('sel', el.dataset.id===id));
+}
+
 async function syncToSupabase() {
   if (!db) return;
   try {
@@ -913,6 +994,38 @@ function rProfile() {
       </div>
     </div>
 
+    <!-- Fond d'écran -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Fond d'écran</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">
+        ${WP_DATA.map(w=>{
+          const isSel = curWallpaper===w.value;
+          const isPhoto = w.value.startsWith('http');
+          const style = isPhoto
+            ? `background-image:url(${w.thumb})`
+            : `background:${w.thumb};border:.5px solid var(--border2)`;
+          return `<div style="text-align:center">
+            <div class="wp-thumb${isSel?' sel':''}" data-value="${w.value}" onclick="applyWallpaper('${w.value}')" style="${style}" title="${w.label}"></div>
+            <div style="font-size:9px;color:var(--txt3);margin-top:3px">${w.label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Couleur sidebar -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Couleur de la barre latérale</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        ${ACC_DATA.map(a=>{
+          const isSel = curSidebarAcc===a.id;
+          return `<div style="text-align:center">
+            <div class="accent-dot${isSel?' sel':''}" data-id="${a.id}" onclick="applySidebarAcc('${a.id}')" style="background:${a.dot||'var(--bg2)'};${a.id==='default'?'border:.5px solid var(--border2)':''}" title="${a.label}"></div>
+            <div style="font-size:9px;color:var(--txt3);margin-top:3px">${a.label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
     <!-- Notifications -->
     <div>
       <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Plage horaire notifications push</div>
@@ -1090,7 +1203,16 @@ async function openShareModal(pjId){
         </div>`;
       }).join('')||'<div style="font-size:12px;color:var(--txt3);text-align:center;padding:12px">Aucun autre membre dans l\'équipe.</div>'}
     </div>
-    <button onclick="saveProjectShares(${pjId})" style="width:100%;padding:12px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px"><i class="ti ti-check"></i> Enregistrer</button>
+    <!-- Inviter par email -->
+    <div style="border-top:.5px solid var(--border);margin:4px 0 14px;padding-top:14px">
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Inviter quelqu'un par email</div>
+      <div style="display:flex;gap:8px">
+        <input type="email" id="share-invite-email" placeholder="adresse@email.com" style="flex:1;padding:9px 12px;border:.5px solid var(--border2);border-radius:9px;background:var(--bg1);color:var(--txt);font-size:13px;font-family:inherit;outline:none">
+        <button onclick="sendShareInvite(${pjId})" style="padding:9px 13px;border-radius:9px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);font-size:13px;cursor:pointer;font-family:inherit;flex-shrink:0;display:flex;align-items:center;gap:5px"><i class="ti ti-mail-forward"></i> Envoyer</button>
+      </div>
+      <p style="font-size:11px;color:var(--txt3);margin-top:5px">Génère un lien d'invitation valable 7 jours → ouvre ton client mail.</p>
+    </div>
+    <button onclick="saveProjectShares(${pjId})" style="width:100%;padding:12px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px"><i class="ti ti-check"></i> Enregistrer les accès</button>
     <button onclick="document.getElementById('m-share-proj').remove()" style="width:100%;padding:10px;border-radius:12px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt2);font-size:13px;cursor:pointer;font-family:inherit">Annuler</button>
   </div>`;
   document.body.appendChild(m);
@@ -1103,6 +1225,29 @@ function toggleShareCheck(input){
   if(!track||!dot)return;
   track.style.background=input.checked?'var(--txt)':'var(--bg2)';
   dot.style.left=input.checked?'21px':'3px';
+}
+async function sendShareInvite(pjId){
+  const email = document.getElementById('share-invite-email')?.value.trim();
+  if(!email || !email.includes('@')) return showToast('Adresse email invalide');
+  const p = projets.find(x=>x.id===pjId);
+  let inviteUrl = location.origin;
+  try {
+    if(db && curUserId){
+      const token = crypto.randomUUID();
+      const exp = new Date(Date.now()+7*24*60*60*1000).toISOString();
+      await db.from('invitations').insert({token, role:'worker', created_by:curUserId, expires_at:exp});
+      inviteUrl = `${location.origin}?invite=${token}`;
+    }
+  } catch(e){ console.warn('invite:', e.message); }
+  const sub = encodeURIComponent(`Invitation — projet "${p?.nom||'Nomade 7'}"`);
+  const body = encodeURIComponent(
+    `Bonjour,\n\nVous êtes invité(e) à accéder au projet "${p?.nom||''}" sur Nomade 7.\n\n`+
+    `Cliquez sur ce lien pour rejoindre :\n${inviteUrl}\n\n`+
+    `Ce lien est valable 7 jours. Créez votre compte avec cet email lors de votre première connexion.\n\nCordialement`
+  );
+  window.open(`mailto:${email}?subject=${sub}&body=${body}`);
+  document.getElementById('share-invite-email').value='';
+  showToast('Email préparé dans votre messagerie !');
 }
 async function saveProjectShares(pjId){
   const p=projets.find(x=>x.id===pjId);if(!p)return;
@@ -2301,6 +2446,9 @@ function showAuthMsg(msg, ok) {
 }
 async function showApp() {
   document.getElementById('auth-screen').style.display = 'none';
+  // Restaurer apparence depuis localStorage (avant loadUserProfile pour éviter flash)
+  if(curWallpaper) applyWallpaper(curWallpaper, false);
+  if(curSidebarAcc && curSidebarAcc!=='default') applySidebarAcc(curSidebarAcc, false);
   await loadUserProfile();
   fetchFromSupabase();
 }
