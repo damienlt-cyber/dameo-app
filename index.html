@@ -488,6 +488,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </select></div>
   <div class="fg"><label>Échéance <span id="dl-req" style="color:#E24B4A;font-size:11px;display:none">* obligatoire si haute</span></label><input type="date" id="nt-dl"></div>
   <div id="dl-note" style="font-size:11px;color:#E24B4A;margin:-7px 0 9px;display:none">Date limite obligatoire pour priorité haute.</div>
+  <div class="fg"><label>Projet <span style="color:var(--txt3);font-weight:400">(optionnel)</span></label><select id="nt-pj"></select></div>
   <div class="fg"><label>Métier</label><select id="nt-m"></select></div>
   <div class="fg"><label>Assigner à</label><select id="nt-a"></select></div>
   <div class="fg"><label>Notes</label><textarea id="nt-no" placeholder="Observations, matériel…"></textarea></div>
@@ -544,7 +545,7 @@ let _inviteRole  = 'worker';
 async function syncToSupabase() {
   if (!db) return;
   try {
-    await db.from('tasks').upsert(tasks.map(t=>({id:t.id,zone:t.zone,name:t.name,statut:t.statut,prio:t.prio,notes:t.notes||'',deadline:t.deadline||null,metier:t.metier||null,assignee:t.assignee||null,photos:t.photos||[]})));
+    await db.from('tasks').upsert(tasks.map(t=>({id:t.id,zone:t.zone,name:t.name,statut:t.statut,prio:t.prio,notes:t.notes||'',deadline:t.deadline||null,metier:t.metier||null,assignee:t.assignee||null,photos:t.photos||[],projet_id:t.projet_id||null,history:t.history||[]})));
     await db.from('contacts').upsert(contacts.map(c=>({id:c.id,name:c.name,ini:c.ini,role:c.role,metier:c.metier,phone:c.phone,av:c.av})));
     await db.from('events').upsert(events.map(e=>({id:e.id,title:e.title,date:e.date,type:e.type,notes:e.notes||'',assignee:e.assignee||null})));
     await db.from('emails').upsert(emails.map(e=>({id:e.id,from_name:e.from,subject:e.subject,date:e.date,prev:e.prev,body:e.body,unread:e.unread,done:e.done})));
@@ -567,7 +568,7 @@ async function fetchFromSupabase() {
       db.from('meetings').select('*').order('date'),
     ]);
     let updated = false;
-    if (tr.data?.length)  { tasks.length=0;    tr.data.forEach(t=>tasks.push({...t,photos:t.photos||[]}));  nTid=Math.max(...tasks.map(t=>t.id))+1; updated=true; }
+    if (tr.data?.length)  { tasks.length=0;    tr.data.forEach(t=>tasks.push({...t,photos:t.photos||[],projet_id:t.projet_id||null,history:t.history||[]}));  nTid=Math.max(...tasks.map(t=>t.id))+1; updated=true; }
     else if (tasks.length) syncToSupabase();
     if (cr.data?.length)  { contacts.length=0;  cr.data.forEach(x=>contacts.push(x)); }
     if (er.data?.length)  { events.length=0;    er.data.forEach(x=>events.push(x));   nEid=Math.max(...events.map(e=>e.id))+1; }
@@ -1029,10 +1030,11 @@ function vPhoto(src){const ov=document.createElement('div');ov.style.cssText='po
 function shrTask(){const t=tasks.find(x=>x.id===curTid);if(!t)return;const u=contacts.find(c=>c.id===t.assignee);const txt=`[Nomade 7] ${t.zone} — ${t.name}\nStatut: ${t.statut} | Prio: ${t.prio}${t.deadline?` | Échéance: ${fd(t.deadline)}`:''}${u?` | Assigné: ${u.name}`:''}`;if(navigator.share)navigator.share({title:'Nomade 7',text:txt});else navigator.clipboard.writeText(txt).then(()=>alert('Copié'));}
 
 // ── ADD TASK MODAL ──────────────────────────────────────────────────────────
-function openAddTask(){
+function openAddTask(prePjId) {
   document.getElementById('nt-z').innerHTML=ZONES.map(z=>`<option value="${z}">${z}</option>`).join('');
   document.getElementById('nt-m').innerHTML='<option value="">— Aucun —</option>'+METIERS.map(m=>`<option value="${m}">${m}</option>`).join('');
   document.getElementById('nt-a').innerHTML='<option value="">— Non assigné —</option>'+contacts.map(c=>`<option value="${c.id}">${c.name} (${c.metier})</option>`).join('');
+  document.getElementById('nt-pj').innerHTML='<option value="">— Aucun —</option>'+projets.map(p=>`<option value="${p.id}" ${p.id==prePjId?'selected':''}>${p.nom}</option>`).join('');
   document.getElementById('nt-n').value='';document.getElementById('nt-no').value='';document.getElementById('nt-dl').value='';
   document.getElementById('nt-p').value='● Normale';statNew='À faire';document.getElementById('dl-req').style.display='none';document.getElementById('dl-note').style.display='none';
   const ss=SS;document.querySelectorAll('#nt-stat-row .sc').forEach(b=>{const s=b.dataset.s;if(s==='À faire'){b.style.background=ss[s].bg;b.style.color=ss[s].c;b.style.borderColor=ss[s].bd;b.style.fontWeight='600';}else{b.style.background='var(--bg0)';b.style.color='var(--txt2)';b.style.borderColor='var(--border2)';b.style.fontWeight='400';}});
@@ -1057,8 +1059,11 @@ function addTask(){
   const aid=document.getElementById('nt-a').value;
   const newPhotos = fabPhotoData ? [fabPhotoData] : [];
   fabPhotoData = null;
-  tasks.push({id:nTid++,zone:document.getElementById('nt-z').value,name:n,statut:statNew,prio:p,notes:document.getElementById('nt-no').value,deadline:dl||null,metier:document.getElementById('nt-m').value||null,assignee:aid?parseInt(aid):null,photos:newPhotos});
+  const pjVal = document.getElementById('nt-pj').value;
+  tasks.push({id:nTid++,zone:document.getElementById('nt-z').value,name:n,statut:statNew,prio:p,notes:document.getElementById('nt-no').value,deadline:dl||null,metier:document.getElementById('nt-m').value||null,assignee:aid?parseInt(aid):null,photos:newPhotos,projet_id:pjVal?parseInt(pjVal):null,history:[]});
   closeModal('m-task');rStats();rTasks();rMetiers();saveAll();
+  // Si on était dans un projet, revenir au détail du projet
+  if (pjVal && curPjId && parseInt(pjVal) === curPjId) openProjet(curPjId);
 }
 
 // ── QUICK INPUT ──────────────────────────────────────────────────────────────
@@ -1459,7 +1464,37 @@ function openProjet(id) {
   const u = contacts.find(c => c.id === p.resp);
   const ic = PJ_TYPE_ICONS[p.type] || 'ti-folder';
   const budgetFmt = p.budget ? p.budget.toLocaleString('fr-FR') + ' €' : '—';
-  const taskCount = tasks.filter(t => t.notes && t.notes.includes(p.nom)).length; // future link
+
+  // Tâches liées à ce projet
+  const pjTasks  = tasks.filter(t => t.projet_id === p.id);
+  const pjDone   = pjTasks.filter(t => DONE_STATS.includes(t.statut)).length;
+  const pjAv     = pjTasks.length ? Math.round(pjDone / pjTasks.length * 100) : null;
+  const pjOver   = pjTasks.filter(t => t.deadline && dd(t.deadline) < 0 && !DONE_STATS.includes(t.statut)).length;
+  const pjVerif  = pjTasks.filter(t => t.statut === 'À vérifier').length;
+
+  // Avancement affiché : calculé si tâches liées, sinon manuel
+  const avDisplay = pjAv !== null ? pjAv : p.avancement;
+  const avLabel   = pjAv !== null ? `${pjAv}% <span style="font-size:10px;font-weight:400;color:var(--txt3)">(${pjDone}/${pjTasks.length} tâches)</span>` : `${p.avancement}% <span style="font-size:10px;font-weight:400;color:var(--txt3)">(manuel)</span>`;
+
+  // Rendu compact des tâches du projet
+  const taskRows = pjTasks.length ? pjTasks.map(t => {
+    const tu = contacts.find(c => c.id === t.assignee);
+    const ss = SS[t.statut] || {};
+    return `<div style="display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:.5px solid var(--border);cursor:pointer" onclick="openTD(${t.id})">
+      <div style="width:8px;height:8px;border-radius:50%;background:${ss.dot||'#aaa'};flex-shrink:0;margin-top:4px"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:var(--txt);line-height:1.3">${t.name}</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:3px">
+          <span class="chip" style="background:${ss.bg||'var(--bg1)'};color:${ss.c||'var(--txt2)'}">${t.statut}</span>
+          ${t.zone?`<span class="chip" style="background:var(--bg1);color:var(--txt2)">${t.zone}</span>`:''}
+          ${tu?`<span class="chip" style="background:#E6F1FB;color:#0C447C">${tu.name}</span>`:''}
+          ${t.deadline&&dd(t.deadline)<0&&!DONE_STATS.includes(t.statut)?`<span class="chip" style="background:#FCEBEB;color:#791F1F">${Math.abs(dd(t.deadline))}j retard</span>`:''}
+        </div>
+      </div>
+      <i class="ti ti-chevron-right" style="color:var(--txt3);font-size:14px;flex-shrink:0;margin-top:2px"></i>
+    </div>`;
+  }).join('') : `<div style="padding:16px 0;font-size:13px;color:var(--txt3);text-align:center">Aucune tâche liée à ce projet.</div>`;
+
   document.getElementById('pj-body').innerHTML = `
     <!-- HEADER CARD -->
     <div style="background:var(--bg1);border-radius:14px;padding:16px">
@@ -1468,8 +1503,8 @@ function openProjet(id) {
         <div><div style="font-size:15px;font-weight:600;color:var(--txt)">${p.nom}</div><div style="font-size:12px;color:var(--txt2);margin-top:2px">${PJ_TYPES[p.type]||p.type}${p.client?' · '+p.client:''}</div></div>
       </div>
       <div style="margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--txt2);margin-bottom:5px"><span>Avancement</span><span style="font-weight:600;color:var(--txt);font-size:15px">${p.avancement}%</span></div>
-        <div style="height:8px;background:var(--bg2);border-radius:4px"><div style="height:8px;border-radius:4px;background:${p.avancement>=100?'#639922':p.avancement>=50?'#378ADD':'#BA7517'};width:${p.avancement}%"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--txt2);margin-bottom:5px"><span>Avancement</span><span style="font-weight:600;color:var(--txt);font-size:14px">${avLabel}</span></div>
+        <div style="height:8px;background:var(--bg2);border-radius:4px"><div style="height:8px;border-radius:4px;background:${avDisplay>=100?'#639922':avDisplay>=50?'#378ADD':'#BA7517'};width:${avDisplay}%;transition:width .4s"></div></div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <span class="chip" style="background:${st.bg};color:${st.c}">${st.l}</span>
@@ -1488,21 +1523,31 @@ function openProjet(id) {
         ${p.dateFin&&dd(p.dateFin)!==null?`<div style="font-size:10px;color:${dd(p.dateFin)<0?'#E24B4A':'var(--txt3)'};margin-top:2px">${dd(p.dateFin)<0?Math.abs(dd(p.dateFin))+'j retard':dd(p.dateFin)+' jours'}</div>`:''}
       </div>
       <div style="background:var(--bg0);border:.5px solid var(--border);border-radius:12px;padding:12px">
-        <div style="font-size:11px;color:var(--txt2);margin-bottom:4px">Date début</div>
-        <div style="font-size:18px;font-weight:600;color:var(--txt)">${p.dateDebut?fd(p.dateDebut):'—'}</div>
+        <div style="font-size:11px;color:var(--txt2);margin-bottom:4px">Tâches liées</div>
+        <div style="font-size:18px;font-weight:600;color:var(--txt)">${pjTasks.length}</div>
+        ${pjOver>0?`<div style="font-size:10px;color:#E24B4A;margin-top:2px">${pjOver} en retard</div>`:''}
       </div>
       <div style="background:var(--bg0);border:.5px solid var(--border);border-radius:12px;padding:12px">
-        <div style="font-size:11px;color:var(--txt2);margin-bottom:4px">Mises à jour</div>
-        <div style="font-size:18px;font-weight:600;color:var(--txt)">${p.updates.length}</div>
+        <div style="font-size:11px;color:var(--txt2);margin-bottom:4px">À vérifier</div>
+        <div style="font-size:18px;font-weight:600;color:${pjVerif>0?'#E07050':'var(--txt)'}">${pjVerif}</div>
+        ${pjVerif>0?`<div style="font-size:10px;color:#E07050;margin-top:2px">en attente</div>`:''}
       </div>
     </div>
     <!-- NOTES -->
     ${p.notes?`<div><div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px">Description</div><div style="font-size:13px;color:var(--txt);line-height:1.7;padding:12px;background:var(--bg1);border-radius:11px">${p.notes}</div></div>`:''}
-    <!-- ACTION -->
+    <!-- TÂCHES LIÉES -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em">Tâches du projet</div>
+        <button onclick="openAddTask(${p.id})" style="padding:5px 11px;border-radius:8px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);font-size:12px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:5px"><i class="ti ti-plus" style="font-size:13px"></i> Ajouter</button>
+      </div>
+      ${taskRows}
+    </div>
+    <!-- ACTIONS -->
     <button onclick="openAvancement(${p.id})" style="width:100%;padding:13px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;font-family:inherit"><i class="ti ti-refresh" aria-hidden="true"></i> Mettre à jour l'avancement</button>
     <!-- HISTORIQUE -->
     ${p.updates.length?`<div>
-      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Historique</div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Historique avancement</div>
       ${[...p.updates].reverse().map(u=>`<div style="padding:10px 12px;background:var(--bg0);border:.5px solid var(--border);border-radius:11px;margin-bottom:7px">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:12px;font-weight:600;color:var(--txt)">${u.av}%</span><span style="font-size:11px;color:var(--txt3)">${u.date}</span></div>
         ${u.note?`<div style="font-size:12px;color:var(--txt2);line-height:1.5">${u.note}</div>`:''}
