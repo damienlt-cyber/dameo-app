@@ -225,9 +225,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="filters" id="filters"></div>
     <div id="task-list"></div>
     <div class="fab-row">
-      <button class="fab-s" onclick="setJTab('rapide',document.querySelectorAll('.tabs .tab')[2])" aria-label="Prise rapide"><i class="ti ti-microphone"></i></button>
-      <button class="fab" onclick="openAddTask()" aria-label="Ajouter"><i class="ti ti-plus"></i></button>
+      <button class="fab-s" onclick="setJTab('rapide',document.querySelectorAll('.tabs .tab')[2])" title="Prise rapide" aria-label="Prise rapide"><i class="ti ti-microphone"></i></button>
+      <button class="fab" id="main-fab" onclick="openFab()" aria-label="Ajouter"><i id="main-fab-icon" class="ti ti-plus"></i></button>
     </div>
+    <input type="file" id="fab-photo-input" accept="image/*" capture="environment" style="display:none" onchange="onFabPhoto(this)">
   </div>
   <!-- MÉTIERS -->
   <div id="jt-metiers" class="scroll" style="display:none">
@@ -469,6 +470,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <div id="m-task" class="ov" style="display:none"><div class="sh">
   <div class="sh-h"></div><h3>Nouvelle tâche</h3>
+  <div id="nt-photo-preview" style="display:none"></div>
   <div class="fg"><label>Zone</label><select id="nt-z"></select></div>
   <div class="fg"><label>Tâche</label><input type="text" id="nt-n" placeholder="Description…"></div>
   <div class="fg"><label>Statut</label><div class="sc-row" id="nt-stat-row">
@@ -528,9 +530,11 @@ const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsI
 const db = (window.supabase) ? window.supabase.createClient(SUPA_URL, SUPA_KEY) : null;
 
 // ── STATE UTILISATEUR ──────────────────────────────────────────────────────
-let curRole     = 'worker';  // 'admin' | 'resp' | 'worker'
-let curUserId   = null;
-let curUserName = '';
+let curRole      = 'worker';   // 'admin' | 'resp' | 'worker'
+let curUserId    = null;
+let curUserName  = '';
+let curInputMode = 'structured'; // 'structured' | 'rapide' | 'vocal' | 'photo'
+let fabPhotoData = null;
 let _inviteToken = null;
 let _inviteRole  = 'worker';
 
@@ -581,8 +585,9 @@ async function loadUserProfile() {
     curUserId = user.id;
     const { data: profile } = await db.from('user_profiles').select('*').eq('id', user.id).single();
     if (profile) {
-      curRole     = profile.role     || 'worker';
-      curUserName = profile.name     || user.email;
+      curRole      = profile.role       || 'worker';
+      curUserName  = profile.name       || user.email;
+      curInputMode = profile.input_mode || 'structured';
     } else {
       // Aucun profil — on le crée. Premier utilisateur = admin.
       const { count } = await db.from('user_profiles')
@@ -603,6 +608,10 @@ async function loadUserProfile() {
       _inviteToken = null;
     }
     applyRoleUI();
+    updateFabIcon();
+    // Nouveau profil sans mode → afficher le sélecteur
+    if (profile && !profile.input_mode) setTimeout(showModePicker, 600);
+    if (!profile) setTimeout(showModePicker, 600); // profil tout juste créé
   } catch(e) { console.warn('loadUserProfile:', e.message); }
 }
 
@@ -680,6 +689,59 @@ async function updateMemberRole(userId, newRole) {
     await db.from('user_profiles').update({ role: newRole }).eq('id', userId);
     showToast('Rôle mis à jour.');
   } catch(e) { alert('Erreur : ' + e.message); }
+}
+
+// ── MODES DE SAISIE ───────────────────────────────────────────────────────
+function openFab() {
+  switch(curInputMode) {
+    case 'vocal':
+      setJTab('rapide', document.querySelectorAll('.tabs .tab')[2]);
+      setTimeout(() => { if (!voiceOn) toggleVoice(); }, 200);
+      break;
+    case 'rapide':
+      setJTab('rapide', document.querySelectorAll('.tabs .tab')[2]);
+      setTimeout(() => document.getElementById('q-text')?.focus(), 100);
+      break;
+    case 'photo':
+      document.getElementById('fab-photo-input').click();
+      break;
+    default:
+      openAddTask();
+  }
+}
+
+function updateFabIcon() {
+  const icons = { structured:'ti-plus', rapide:'ti-bolt', vocal:'ti-microphone', photo:'ti-camera' };
+  const el = document.getElementById('main-fab-icon');
+  if (el) el.className = 'ti ' + (icons[curInputMode] || 'ti-plus');
+}
+
+async function saveInputMode(mode) {
+  curInputMode = mode;
+  updateFabIcon();
+  try {
+    if (db && curUserId) {
+      await db.from('user_profiles').update({ input_mode: mode }).eq('id', curUserId);
+    }
+  } catch(e) { console.warn('saveInputMode:', e.message); }
+  document.getElementById('m-mode-picker').style.display = 'none';
+  // Mettre à jour l'affichage dans Réglages si ouvert
+  const modeEl = document.getElementById('cur-mode-label');
+  const modeNames = { structured:'📋 Structuré', rapide:'✍️ Rapide', vocal:'🎤 Vocal', photo:'📸 Photo' };
+  if (modeEl) modeEl.textContent = modeNames[mode] || mode;
+  showToast('Mode de saisie mis à jour !');
+}
+
+function showModePicker() {
+  document.getElementById('m-mode-picker').style.display = 'flex';
+}
+
+function onFabPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { fabPhotoData = e.target.result; openAddTask(); input.value = ''; };
+  reader.readAsDataURL(file);
 }
 
 function showToast(msg) {
@@ -883,6 +945,17 @@ function openAddTask(){
   document.getElementById('nt-n').value='';document.getElementById('nt-no').value='';document.getElementById('nt-dl').value='';
   document.getElementById('nt-p').value='● Normale';statNew='À faire';document.getElementById('dl-req').style.display='none';document.getElementById('dl-note').style.display='none';
   const ss=SS;document.querySelectorAll('#nt-stat-row .sc').forEach(b=>{const s=b.dataset.s;if(s==='À faire'){b.style.background=ss[s].bg;b.style.color=ss[s].c;b.style.borderColor=ss[s].bd;b.style.fontWeight='600';}else{b.style.background='var(--bg0)';b.style.color='var(--txt2)';b.style.borderColor='var(--border2)';b.style.fontWeight='400';}});
+  // Mode photo : prévisualisation
+  const pp = document.getElementById('nt-photo-preview');
+  if (pp) {
+    if (fabPhotoData) {
+      pp.style.display = 'block';
+      pp.innerHTML = `<div style="position:relative;margin-bottom:8px"><img src="${fabPhotoData}" style="width:100%;max-height:160px;object-fit:cover;border-radius:10px"><button onclick="fabPhotoData=null;document.getElementById('nt-photo-preview').style.display='none'" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.5);border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center"><i class="ti ti-x"></i></button></div>`;
+    } else {
+      pp.style.display = 'none';
+      pp.innerHTML = '';
+    }
+  }
   document.getElementById('m-task').style.display='flex';
 }
 function selStat(el){statNew=el.dataset.s;const ss=SS;document.querySelectorAll('#nt-stat-row .sc').forEach(b=>{const s=b.dataset.s;if(s===statNew){b.style.background=ss[s].bg;b.style.color=ss[s].c;b.style.borderColor=ss[s].bd;b.style.fontWeight='600';}else{b.style.background='var(--bg0)';b.style.color='var(--txt2)';b.style.borderColor='var(--border2)';b.style.fontWeight='400';}});}
@@ -891,7 +964,9 @@ function addTask(){
   const n=document.getElementById('nt-n').value.trim();const p=document.getElementById('nt-p').value;const dl=document.getElementById('nt-dl').value;
   if(!n)return alert('Nom requis');if(p==='▲ Haute'&&!dl)return alert('Date limite obligatoire pour haute priorité');
   const aid=document.getElementById('nt-a').value;
-  tasks.push({id:nTid++,zone:document.getElementById('nt-z').value,name:n,statut:statNew,prio:p,notes:document.getElementById('nt-no').value,deadline:dl||null,metier:document.getElementById('nt-m').value||null,assignee:aid?parseInt(aid):null,photos:[]});
+  const newPhotos = fabPhotoData ? [fabPhotoData] : [];
+  fabPhotoData = null;
+  tasks.push({id:nTid++,zone:document.getElementById('nt-z').value,name:n,statut:statNew,prio:p,notes:document.getElementById('nt-no').value,deadline:dl||null,metier:document.getElementById('nt-m').value||null,assignee:aid?parseInt(aid):null,photos:newPhotos});
   closeModal('m-task');rStats();rTasks();rMetiers();saveAll();
 }
 
@@ -1170,9 +1245,19 @@ function rSettings(){
         <div style="width:40px;height:40px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--txt);flex-shrink:0">${curUserName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?'}</div>
         <div style="flex:1;min-width:0">
           <div id="cur-user-name" style="font-size:14px;font-weight:600;color:var(--txt)">${curUserName}</div>
-          <div style="font-size:11px;color:var(--txt2);margin-top:2px">${curUserId?curUserId.slice(0,8)+'…':''}</div>
+          <div style="font-size:11px;color:var(--txt2);margin-top:1px">${curUserId?curUserId.slice(0,8)+'…':''}</div>
         </div>
         <span id="cur-role-badge" class="chip" style="background:${rbg};color:${rclr};flex-shrink:0">${rl[curRole]||curRole}</span>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Mode de saisie</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg1);border-radius:12px">
+        <div>
+          <div id="cur-mode-label" style="font-size:14px;font-weight:600;color:var(--txt)">${{structured:'📋 Structuré',rapide:'✍️ Rapide',vocal:'🎤 Vocal',photo:'📸 Photo'}[curInputMode]||'📋 Structuré'}</div>
+          <div style="font-size:11px;color:var(--txt2);margin-top:1px">Touche principale de la job list</div>
+        </div>
+        <button onclick="showModePicker()" style="padding:7px 13px;border-radius:9px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0">Changer</button>
       </div>
     </div>
     <div>
@@ -1713,6 +1798,30 @@ if ('serviceWorker' in navigator) {
   </div>
 
 </div>
+
+<!-- MODAL CHOIX MODE DE SAISIE -->
+<div id="m-mode-picker" class="ov" style="display:none;z-index:10000"><div class="sh" style="max-width:420px;padding:24px">
+  <div style="font-size:19px;font-weight:700;color:var(--txt);margin-bottom:6px">Comment tu saisis tes tâches ?</div>
+  <div style="font-size:13px;color:var(--txt2);margin-bottom:20px">Choisis ton mode. Tu pourras le changer à tout moment dans Réglages.</div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <button onclick="saveInputMode('photo')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:.5px solid var(--border2);border-radius:14px;background:var(--bg0);cursor:pointer;text-align:left;font-family:inherit;width:100%">
+      <div style="font-size:28px;flex-shrink:0">📸</div>
+      <div><div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:2px">Je prends une photo</div><div style="font-size:12px;color:var(--txt2)">Je cadre la zone ou la pièce, j'ajoute un commentaire rapide.</div></div>
+    </button>
+    <button onclick="saveInputMode('vocal')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:.5px solid var(--border2);border-radius:14px;background:var(--bg0);cursor:pointer;text-align:left;font-family:inherit;width:100%">
+      <div style="font-size:28px;flex-shrink:0">🎤</div>
+      <div><div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:2px">Je dicte à voix haute</div><div style="font-size:12px;color:var(--txt2)">Je parle, l'appli transcrit et crée la tâche automatiquement.</div></div>
+    </button>
+    <button onclick="saveInputMode('rapide')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:.5px solid var(--border2);border-radius:14px;background:var(--bg0);cursor:pointer;text-align:left;font-family:inherit;width:100%">
+      <div style="font-size:28px;flex-shrink:0">✍️</div>
+      <div><div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:2px">J'écris une phrase courte</div><div style="font-size:12px;color:var(--txt2)">Une ligne, l'IA extrait zone, métier et priorité.</div></div>
+    </button>
+    <button onclick="saveInputMode('structured')" style="display:flex;align-items:center;gap:14px;padding:14px 16px;border:.5px solid var(--border2);border-radius:14px;background:var(--bg0);cursor:pointer;text-align:left;font-family:inherit;width:100%">
+      <div style="font-size:28px;flex-shrink:0">📋</div>
+      <div><div style="font-size:14px;font-weight:600;color:var(--txt);margin-bottom:2px">Je remplis un formulaire</div><div style="font-size:12px;color:var(--txt2)">Champs nommés, saisie structurée, rien n'est oublié.</div></div>
+    </button>
+  </div>
+</div></div>
 
 <!-- ÉCRAN RESET MOT DE PASSE -->
 <div id="reset-screen" style="display:none;position:fixed;inset:0;background:var(--bg0);z-index:9999;align-items:center;justify-content:center;padding:24px">
