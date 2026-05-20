@@ -234,6 +234,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="topbar">
       <i class="ti ti-sailboat" style="font-size:19px;color:var(--txt2)" aria-hidden="true"></i>
       <h1>Nomade 7</h1>
+      <button id="topbar-avatar" onclick="goProfile()" style="width:30px;height:30px;border-radius:50%;background:var(--bg2);color:var(--txt);border:none;cursor:pointer;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;padding:0" aria-label="Mon profil" title="Mon profil">?</button>
       <button class="ib" onclick="goSettings()" aria-label="Paramètres"><i class="ti ti-settings"></i></button>
       <button class="ib" onclick="authLogout()" aria-label="Déconnexion" title="Se déconnecter" style="color:var(--txt3)"><i class="ti ti-logout"></i></button>
     </div>
@@ -330,10 +331,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <!-- EMAILS -->
 <div id="sc-emails" class="screen">
   <div class="topbar">
-    <h1>Emails entrants</h1>
+    <h1>Emails</h1>
     <span id="unread-badge" style="font-size:11px;padding:3px 9px;border-radius:20px;background:var(--blue-bg);color:var(--blue-c)"></span>
   </div>
-  <div class="scroll" style="padding:12px 16px 0" id="email-list"></div>
+  <div class="tabs">
+    <button class="tab on" onclick="setEmailTab('inbox',this)">Analyse & Déploiement</button>
+    <button class="tab" onclick="setEmailTab('boite',this)">Boîte entrante</button>
+  </div>
+  <!-- Onglet analyse (existant) -->
+  <div id="et-inbox" class="scroll" style="padding:12px 16px 0">
+    <div id="email-list"></div>
+  </div>
+  <!-- Onglet boîte entrante -->
+  <div id="et-boite" class="scroll" style="display:none;padding:14px 16px;flex-direction:column;gap:14px">
+    <div id="inbox-setup-card"></div>
+    <div id="inbox-emails-list"></div>
+  </div>
 </div>
 
 <!-- EMAIL DETAIL -->
@@ -470,6 +483,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="scroll" style="padding:14px;display:flex;flex-direction:column;gap:18px" id="settings-body"></div>
 </div>
 
+<!-- PROFIL UTILISATEUR -->
+<div id="sc-profile" class="screen">
+  <div class="topbar">
+    <button class="back-btn" onclick="go('sc-settings')" aria-label="Retour"><i class="ti ti-arrow-left"></i></button>
+    <h1>Mon profil</h1>
+    <button onclick="saveProfile()" style="padding:6px 15px;border-radius:9px;background:var(--txt);color:var(--bg0);border:none;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Enregistrer</button>
+  </div>
+  <div class="scroll" id="profile-body" style="padding:18px 16px;display:flex;flex-direction:column;gap:22px"></div>
+</div>
+
+<!-- PARTAGE PROJETS -->
+<div id="sc-sharing" class="screen">
+  <div class="topbar">
+    <button class="back-btn" onclick="go('sc-projets')" aria-label="Retour"><i class="ti ti-arrow-left"></i></button>
+    <h1>Partage des projets</h1>
+  </div>
+  <div class="scroll" id="sharing-body" style="padding:14px 16px;display:flex;flex-direction:column;gap:16px"></div>
+</div>
+
 <!-- MODAL PROJET -->
 <div id="m-projet" class="ov" style="display:none"><div class="sh">
   <div class="sh-h"></div><h3 id="mpj-title">Nouveau projet</h3>
@@ -561,6 +593,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button onclick="switchMain('sc-reu',this)" aria-label="Réunions"><i class="ti ti-microphone"></i><span>Réunions</span></button>
   <button onclick="switchMain('sc-contacts',this)" aria-label="Contacts"><i class="ti ti-users"></i><span>Contacts</span></button>
   <button class="gantt-nav-btn" onclick="switchMain('sc-gantt',this)" aria-label="Gantt"><i class="ti ti-chart-gantt"></i><span>Gantt</span></button>
+  <button class="gantt-nav-btn" onclick="goSharing()" aria-label="Partage"><i class="ti ti-share-2"></i><span>Partage</span></button>
 </div>
 </div><!-- .phone -->
 
@@ -584,6 +617,8 @@ let fabPhotoData = null;  // base64 pour preview avant création tâche
 let fabPhotoFile = null;  // File object pour upload Supabase Storage
 let _inviteToken = null;
 let _inviteRole  = 'worker';
+// Profil étendu
+let curProfile = { avatar_url:null, logo_url:null, metier:'', phone:'', notif_start:'07:30', notif_end:'18:00' };
 
 async function syncToSupabase() {
   if (!db) return;
@@ -635,6 +670,12 @@ async function loadUserProfile() {
       curRole      = profile.role       || 'worker';
       curUserName  = profile.name       || user.email;
       curInputMode = profile.input_mode || 'structured';
+      curProfile.avatar_url  = profile.avatar_url  || null;
+      curProfile.logo_url    = profile.logo_url    || null;
+      curProfile.metier      = profile.metier      || '';
+      curProfile.phone       = profile.phone       || '';
+      curProfile.notif_start = profile.notif_start || '07:30';
+      curProfile.notif_end   = profile.notif_end   || '18:00';
     } else {
       // Aucun profil — on le crée. Premier utilisateur = admin.
       const { count } = await db.from('user_profiles')
@@ -656,6 +697,7 @@ async function loadUserProfile() {
     }
     applyRoleUI();
     updateFabIcon();
+    updateTopbarAvatar();
     // Activer les push notifications
     setTimeout(initPush, 1000);
     // Nouveau profil sans mode → afficher le sélecteur
@@ -792,6 +834,392 @@ function onFabPhoto(input) {
   const reader = new FileReader();
   reader.onload = e => { fabPhotoData = e.target.result; openAddTask(); input.value = ''; };
   reader.readAsDataURL(file);
+}
+
+// ── PROFIL UTILISATEUR ───────────────────────────────────────────────────
+function goProfile() {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sc-profile').classList.add('active');
+  document.getElementById('bnav').style.display='none';
+  rProfile();
+}
+function rProfile() {
+  const ini=curUserName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
+  const rl={admin:'Admin',resp:'Responsable',worker:'Intervenant'};
+  const rc={admin:'#EEEDFE:#3C3489',resp:'#E6F1FB:#0C447C',worker:'var(--bg2):var(--txt2)'};
+  const [rbg,rclr]=(rc[curRole]||rc.worker).split(':');
+  const modes=[
+    ['photo','📸','Photo','Je cadre la zone ou la pièce'],
+    ['vocal','🎤','Vocal','Je dicte, l\'IA transcrit'],
+    ['rapide','✍️','Rapide','Une phrase, l\'IA extrait tout'],
+    ['structured','📋','Formulaire','Saisie champ par champ']
+  ];
+  document.getElementById('profile-body').innerHTML=`
+    <!-- Avatar -->
+    <div style="display:flex;align-items:center;gap:16px;padding:4px 0">
+      <div style="position:relative;flex-shrink:0">
+        ${curProfile.avatar_url
+          ?`<img src="${curProfile.avatar_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid var(--border2)">`
+          :`<div style="width:80px;height:80px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:var(--txt);border:2px solid var(--border2)">${ini}</div>`
+        }
+        <button onclick="document.getElementById('avatar-inp').click()" style="position:absolute;bottom:0;right:0;width:26px;height:26px;border-radius:50%;background:var(--txt);color:var(--bg0);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px"><i class="ti ti-camera"></i></button>
+        <input type="file" id="avatar-inp" accept="image/*" style="display:none" onchange="onAvatarChange(this)">
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:17px;font-weight:700;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${curUserName}</div>
+        <span class="chip" style="background:${rbg};color:${rclr};margin-top:5px;display:inline-flex">${rl[curRole]||curRole}</span>
+      </div>
+    </div>
+
+    <!-- Infos personnelles -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Informations personnelles</div>
+      <div class="fg"><label>Nom complet *</label><input type="text" id="prof-name" value="${curUserName}" placeholder="Prénom Nom"></div>
+      <div class="fg"><label>Métier</label><select id="prof-metier">
+        <option value="">— Choisir —</option>
+        ${METIERS.map(m=>`<option value="${m}" ${m===curProfile.metier?'selected':''}>${m}</option>`).join('')}
+      </select></div>
+      <div class="fg" style="margin-bottom:0"><label>Téléphone</label><input type="tel" id="prof-phone" value="${curProfile.phone||''}" placeholder="06 00 00 00 00"></div>
+    </div>
+
+    <!-- Logo chantier -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Logo chantier / entreprise</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:72px;height:72px;border-radius:12px;border:.5px solid var(--border2);background:var(--bg1);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+          ${curProfile.logo_url
+            ?`<img src="${curProfile.logo_url}" style="width:100%;height:100%;object-fit:contain">`
+            :`<i class="ti ti-building" style="font-size:28px;color:var(--txt3)"></i>`}
+        </div>
+        <div>
+          <button onclick="document.getElementById('logo-inp').click()" style="padding:8px 14px;border-radius:9px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);font-size:13px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:6px"><i class="ti ti-upload"></i> Choisir un logo</button>
+          <div style="font-size:11px;color:var(--txt3);margin-top:5px">PNG, JPG ou SVG · max 2 Mo</div>
+          ${curProfile.logo_url?`<button onclick="removeLogo()" style="font-size:11px;color:#E24B4A;background:none;border:none;cursor:pointer;margin-top:4px;padding:0;font-family:inherit">Supprimer le logo</button>`:''}
+          <input type="file" id="logo-inp" accept="image/*" style="display:none" onchange="onLogoChange(this)">
+        </div>
+      </div>
+    </div>
+
+    <!-- Mode de saisie -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Mode de saisie par défaut (bouton +)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${modes.map(([m,em,lbl,desc])=>`
+          <button onclick="selProfileMode('${m}')" id="pmode-${m}" style="text-align:left;padding:12px;border-radius:12px;border:${curInputMode===m?'1.5px solid var(--txt)':'0.5px solid var(--border2)'};background:${curInputMode===m?'var(--bg1)':'var(--bg0)'};cursor:pointer;font-family:inherit;transition:all .15s">
+            <div style="font-size:22px;margin-bottom:4px">${em}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--txt)">${lbl}</div>
+            <div style="font-size:11px;color:var(--txt2);line-height:1.4;margin-top:2px">${desc}</div>
+          </button>`).join('')}
+      </div>
+    </div>
+
+    <!-- Notifications -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Plage horaire notifications push</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="fg" style="margin:0"><label>Début</label><input type="time" id="prof-ns" value="${curProfile.notif_start||'07:30'}"></div>
+        <div class="fg" style="margin:0"><label>Fin</label><input type="time" id="prof-ne" value="${curProfile.notif_end||'18:00'}"></div>
+      </div>
+      <p style="font-size:11px;color:var(--txt3);margin-top:6px">Les notifications ne seront envoyées que dans cette plage horaire.</p>
+    </div>
+
+    <!-- Danger zone -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Compte</div>
+      <button onclick="authLogout()" style="width:100%;padding:11px;border-radius:12px;background:var(--red-bg);color:var(--red-c);border:.5px solid var(--red-bd);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit"><i class="ti ti-logout"></i> Se déconnecter</button>
+    </div>
+  `;
+}
+async function saveProfile() {
+  const name=document.getElementById('prof-name')?.value.trim();
+  const metier=document.getElementById('prof-metier')?.value||'';
+  const phone=document.getElementById('prof-phone')?.value.trim()||'';
+  const ns=document.getElementById('prof-ns')?.value||'07:30';
+  const ne=document.getElementById('prof-ne')?.value||'18:00';
+  if(!name)return showToast('Nom requis');
+  curUserName=name;
+  Object.assign(curProfile,{metier,phone,notif_start:ns,notif_end:ne});
+  try {
+    if(db&&curUserId){
+      await db.from('user_profiles').update({
+        name,metier,phone,input_mode:curInputMode,notif_start:ns,notif_end:ne
+      }).eq('id',curUserId);
+    }
+  } catch(e){console.warn('saveProfile:',e.message);}
+  applyRoleUI();
+  updateTopbarAvatar();
+  showToast('Profil enregistré !');
+}
+function selProfileMode(mode){
+  curInputMode=mode;
+  updateFabIcon();
+  ['photo','vocal','rapide','structured'].forEach(m=>{
+    const c=document.getElementById('pmode-'+m);if(!c)return;
+    c.style.border=m===mode?'1.5px solid var(--txt)':'.5px solid var(--border2)';
+    c.style.background=m===mode?'var(--bg1)':'var(--bg0)';
+  });
+  const modeEl=document.getElementById('cur-mode-label');
+  const mn={structured:'📋 Structuré',rapide:'✍️ Rapide',vocal:'🎤 Vocal',photo:'📸 Photo'};
+  if(modeEl)modeEl.textContent=mn[mode]||mode;
+}
+function updateTopbarAvatar(){
+  const btn=document.getElementById('topbar-avatar');if(!btn)return;
+  if(curProfile.avatar_url){
+    btn.innerHTML=`<img src="${curProfile.avatar_url}" style="width:30px;height:30px;border-radius:50%;object-fit:cover">`;
+    btn.style.padding='0';
+  } else {
+    const ini=curUserName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
+    btn.textContent=ini;
+  }
+}
+async function onAvatarChange(input){
+  const file=input.files[0];if(!file)return;
+  if(file.size>5*1024*1024)return showToast('Fichier trop lourd (max 5 Mo)');
+  showToast('Envoi en cours…');
+  const url=await uploadAvatar(file);
+  if(url){updateTopbarAvatar();rProfile();showToast('Photo de profil mise à jour !');}
+  else showToast('Erreur lors de l\'envoi');
+  input.value='';
+}
+async function onLogoChange(input){
+  const file=input.files[0];if(!file)return;
+  if(file.size>5*1024*1024)return showToast('Fichier trop lourd (max 5 Mo)');
+  showToast('Envoi en cours…');
+  const url=await uploadLogo(file);
+  if(url){rProfile();showToast('Logo mis à jour !');}
+  else showToast('Erreur lors de l\'envoi');
+  input.value='';
+}
+async function removeLogo(){
+  if(!confirm('Supprimer le logo ?'))return;
+  curProfile.logo_url=null;
+  try{ if(db&&curUserId)await db.from('user_profiles').update({logo_url:null}).eq('id',curUserId); }catch(_){}
+  rProfile();showToast('Logo supprimé.');
+}
+async function uploadAvatar(file){
+  if(!db||!curUserId)return null;
+  try{
+    const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+    const path=`avatars/${curUserId}.${ext}`;
+    const {error}=await db.storage.from('avatars').upload(path,file,{cacheControl:'3600',upsert:true});
+    if(error)throw error;
+    const {data:{publicUrl}}=db.storage.from('avatars').getPublicUrl(path);
+    curProfile.avatar_url=publicUrl+'?t='+Date.now();
+    await db.from('user_profiles').update({avatar_url:curProfile.avatar_url}).eq('id',curUserId);
+    return curProfile.avatar_url;
+  }catch(e){console.warn('uploadAvatar:',e.message);return null;}
+}
+async function uploadLogo(file){
+  if(!db||!curUserId)return null;
+  try{
+    const ext=(file.name.split('.').pop()||'png').toLowerCase();
+    const path=`logos/${curUserId}.${ext}`;
+    const {error}=await db.storage.from('avatars').upload(path,file,{cacheControl:'86400',upsert:true});
+    if(error)throw error;
+    const {data:{publicUrl}}=db.storage.from('avatars').getPublicUrl(path);
+    curProfile.logo_url=publicUrl+'?t='+Date.now();
+    await db.from('user_profiles').update({logo_url:curProfile.logo_url}).eq('id',curUserId);
+    return curProfile.logo_url;
+  }catch(e){console.warn('uploadLogo:',e.message);return null;}
+}
+
+// ── PARTAGE PROJETS ──────────────────────────────────────────────────────
+function goSharing(){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sc-sharing').classList.add('active');
+  document.getElementById('bnav').style.display='none';
+  rSharing();
+}
+async function rSharing(){
+  const el=document.getElementById('sharing-body');
+  el.innerHTML='<div style="font-size:12px;color:var(--txt3)"><div class="skel" style="height:80px;margin-bottom:10px"></div><div class="skel" style="height:80px;margin-bottom:10px"></div></div>';
+  // Charger les membres
+  let members=[];
+  try{
+    if(db){const {data}=await db.from('user_profiles').select('id,name,role,metier').order('created_at');if(data)members=data;}
+  }catch(_){}
+  const rl={admin:'Admin',resp:'Responsable',worker:'Intervenant'};
+  el.innerHTML=projets.length?projets.map(p=>{
+    const sw=p.shared_with||[];
+    const sharedMembers=members.filter(m=>sw.includes(m.id));
+    const st=PJ_STATUS[p.statut]||PJ_STATUS.actif;
+    return`<div style="background:var(--bg0);border:.5px solid var(--border);border-radius:14px;padding:14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--txt)">${p.nom}</div>
+          <span class="chip" style="background:${st.bg};color:${st.c};margin-top:4px">${st.l}</span>
+        </div>
+        <button onclick="openShareModal(${p.id})" style="padding:6px 12px;border-radius:9px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0;display:flex;align-items:center;gap:5px"><i class="ti ti-share-2"></i> Gérer</button>
+      </div>
+      ${sharedMembers.length
+        ?`<div style="font-size:11px;color:var(--txt2);margin-bottom:6px">Partagé avec :</div>
+           <div style="display:flex;gap:6px;flex-wrap:wrap">${sharedMembers.map(m=>{const ini=m.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);return`<div style="display:flex;align-items:center;gap:5px;padding:4px 8px;background:var(--bg1);border-radius:20px;font-size:11px;color:var(--txt)"><div style="width:20px;height:20px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700">${ini}</div>${m.name}</div>`;}).join('')}</div>`
+        :`<div style="font-size:12px;color:var(--txt3)"><i class="ti ti-lock" style="font-size:13px"></i> Accès privé — personne d'autre n'y a accès</div>`}
+    </div>`;
+  }).join(''):'<div style="text-align:center;padding:30px 0;font-size:13px;color:var(--txt3)">Aucun projet créé.</div>';
+}
+async function openShareModal(pjId){
+  const p=projets.find(x=>x.id===pjId);if(!p)return;
+  let members=[];
+  try{
+    if(db){const {data}=await db.from('user_profiles').select('id,name,role,metier').order('created_at');if(data)members=data;}
+  }catch(_){}
+  const sw=p.shared_with||[];
+  const rl={admin:'Admin',resp:'Responsable',worker:'Intervenant'};
+  const old=document.getElementById('m-share-proj');if(old)old.remove();
+  const m=document.createElement('div');
+  m.id='m-share-proj';m.className='ov';m.style.zIndex='300';
+  m.innerHTML=`<div class="sh" style="max-width:480px;padding:22px">
+    <div style="font-size:16px;font-weight:700;color:var(--txt);margin-bottom:4px">Partager le projet</div>
+    <div style="font-size:13px;color:var(--txt2);margin-bottom:16px">${p.nom}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px" id="share-members-list">
+      ${members.filter(mb=>mb.id!==curUserId).map(mb=>{
+        const ini=mb.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+        const isShared=sw.includes(mb.id);
+        return`<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg1);border-radius:10px">
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${ini}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--txt)">${mb.name}</div>
+            <div style="font-size:11px;color:var(--txt2)">${mb.metier||rl[mb.role]||mb.role}</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0">
+            <input type="checkbox" data-uid="${mb.id}" ${isShared?'checked':''} style="opacity:0;width:0;height:0;position:absolute" onchange="toggleShareCheck(this)">
+            <span style="position:absolute;inset:0;background:${isShared?'var(--txt)':'var(--bg2)'};border-radius:24px;cursor:pointer;transition:.2s" id="sw-${mb.id}"></span>
+            <span style="position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;left:${isShared?'21px':'3px'};transition:.2s" id="sw-dot-${mb.id}"></span>
+          </label>
+        </div>`;
+      }).join('')||'<div style="font-size:12px;color:var(--txt3);text-align:center;padding:12px">Aucun autre membre dans l\'équipe.</div>'}
+    </div>
+    <button onclick="saveProjectShares(${pjId})" style="width:100%;padding:12px;border-radius:12px;background:var(--txt);color:var(--bg0);border:none;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px"><i class="ti ti-check"></i> Enregistrer</button>
+    <button onclick="document.getElementById('m-share-proj').remove()" style="width:100%;padding:10px;border-radius:12px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt2);font-size:13px;cursor:pointer;font-family:inherit">Annuler</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+}
+function toggleShareCheck(input){
+  const uid=input.dataset.uid;
+  const track=document.getElementById('sw-'+uid);
+  const dot=document.getElementById('sw-dot-'+uid);
+  if(!track||!dot)return;
+  track.style.background=input.checked?'var(--txt)':'var(--bg2)';
+  dot.style.left=input.checked?'21px':'3px';
+}
+async function saveProjectShares(pjId){
+  const p=projets.find(x=>x.id===pjId);if(!p)return;
+  const checkboxes=document.querySelectorAll('#share-members-list input[type=checkbox]');
+  const sharedWith=[...checkboxes].filter(c=>c.checked).map(c=>c.dataset.uid);
+  p.shared_with=sharedWith;
+  try{
+    if(db)await db.from('projets').update({shared_with:sharedWith}).eq('id',pjId);
+  }catch(e){console.warn('saveProjectShares:',e.message);}
+  document.getElementById('m-share-proj')?.remove();
+  rSharing();
+  showToast('Partage mis à jour !');
+}
+
+// ── BOÎTE MAIL ENTRANTE ──────────────────────────────────────────────────
+let emailTab='inbox';
+function setEmailTab(tab,el){
+  emailTab=tab;
+  document.getElementById('et-inbox').style.display=tab==='inbox'?'':'none';
+  const bt=document.getElementById('et-boite');bt.style.display=tab==='boite'?'flex':'none';
+  document.querySelectorAll('#sc-emails .tabs .tab').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  if(tab==='boite')rInboxSetup();
+}
+async function rInboxSetup(){
+  const webhookUrl=`https://owkavqtcmrenazfatbny.supabase.co/functions/v1/receive-email?user_id=${curUserId||'VOTRE_USER_ID'}`;
+  document.getElementById('inbox-setup-card').innerHTML=`
+    <div style="background:var(--blue-bg);border:.5px solid var(--blue-bd);border-radius:14px;padding:16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <i class="ti ti-mail-forward" style="font-size:18px;color:#378ADD"></i>
+        <span style="font-size:14px;font-weight:600;color:var(--blue-c)">Transférez vos emails vers l'app</span>
+      </div>
+      <p style="font-size:13px;color:var(--blue-c);line-height:1.6;margin-bottom:12px">
+        Configurez une règle de transfert dans votre client email (Gmail, Outlook…) ou utilisez Zapier/Make.com pour envoyer les emails de vos prestataires vers l'app. Nomade 7 en extrait automatiquement les tâches et échéances via Claude.
+      </p>
+      <div style="font-size:11px;font-weight:600;color:var(--blue-c);margin-bottom:5px">URL de réception (webhook) :</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="flex:1;background:var(--bg0);border:.5px solid var(--blue-bd);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--txt2);word-break:break-all;font-family:monospace">${webhookUrl}</div>
+        <button onclick="navigator.clipboard.writeText('${webhookUrl}').then(()=>showToast('URL copiée !'))" style="padding:8px 10px;border-radius:8px;border:.5px solid var(--blue-bd);background:var(--bg0);color:#378ADD;font-size:12px;cursor:pointer;flex-shrink:0;font-family:inherit"><i class="ti ti-copy"></i></button>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--blue-c);line-height:1.6">
+        <strong>3 façons de l'utiliser :</strong><br>
+        1. <strong>Gmail</strong> : Filtres → Transférer vers (via Zapier ou Make)<br>
+        2. <strong>Zapier/Make</strong> : déclencheur Email → POST vers cette URL<br>
+        3. <strong>Manuel</strong> : collez le contenu ci-dessous ↓
+      </div>
+    </div>
+    <!-- Formulaire import manuel -->
+    <div>
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;margin-top:4px">Importer un email manuellement</div>
+      <div class="fg"><label>Expéditeur</label><input type="text" id="mi-from" placeholder="fournisseur@exemple.com"></div>
+      <div class="fg"><label>Objet</label><input type="text" id="mi-subject" placeholder="Livraison batterie Mastervolt…"></div>
+      <div class="fg" style="margin-bottom:0"><label>Corps du mail</label><textarea id="mi-body" placeholder="Copiez-collez le contenu du mail…" style="height:100px"></textarea></div>
+      <button onclick="submitManualEmail()" class="btn-p" style="margin-top:10px">Importer cet email</button>
+    </div>
+  `;
+  // Charger les emails reçus via webhook
+  await loadInboxEmails();
+}
+async function loadInboxEmails(){
+  const el=document.getElementById('inbox-emails-list');if(!el)return;
+  el.innerHTML='';
+  if(!db||!curUserId)return;
+  try{
+    const {data}=await db.from('emails_inbox').select('*').eq('user_id',curUserId).order('received_at',{ascending:false}).limit(20);
+    if(!data||!data.length){el.innerHTML='<div style="font-size:13px;color:var(--txt3);text-align:center;padding:18px 0">Aucun email reçu via webhook.</div>';return;}
+    el.innerHTML=`<div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Emails reçus (${data.length})</div>`+
+    data.map(em=>`<div style="background:var(--bg0);border:.5px solid var(--border);border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer" onclick="analyzeInboxEmail('${em.id}')">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+        <span style="font-size:13px;font-weight:600;color:var(--txt)">${em.from_addr}</span>
+        <span style="font-size:10px;color:var(--txt3)">${new Date(em.received_at).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>
+      </div>
+      <div style="font-size:13px;color:var(--txt);margin-bottom:4px">${em.subject}</div>
+      <div style="font-size:11px;color:var(--txt3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(em.body||'').slice(0,80)}</div>
+      <div style="margin-top:6px"><span class="chip" style="background:${em.processed?'#EAF3DE':'var(--bg1)'};color:${em.processed?'#27500A':'var(--txt2)'}">${em.processed?'✓ Traité':'À analyser'}</span></div>
+    </div>`).join('');
+  }catch(e){el.innerHTML=`<div style="font-size:12px;color:var(--red-c)">Erreur : ${e.message}</div>`;}
+}
+async function submitManualEmail(){
+  const from=document.getElementById('mi-from')?.value.trim();
+  const subject=document.getElementById('mi-subject')?.value.trim();
+  const body=document.getElementById('mi-body')?.value.trim();
+  if(!subject||!body)return showToast('Objet et corps du mail requis');
+  if(db&&curUserId){
+    try{
+      await db.from('emails_inbox').insert({user_id:curUserId,from_addr:from||'manuel',subject,body});
+      document.getElementById('mi-from').value='';
+      document.getElementById('mi-subject').value='';
+      document.getElementById('mi-body').value='';
+      showToast('Email importé !');
+      await loadInboxEmails();
+    }catch(e){showToast('Erreur : '+e.message);}
+  } else {
+    // Mode sans Supabase — simuler l'analyse directe
+    emails.push({id:Date.now(),from:from||'Manuel',subject,body,date:isoD(TODAY),prev:body.slice(0,50),unread:true,done:false});
+    rEmails();showToast('Email importé !');
+    document.getElementById('mi-from').value='';
+    document.getElementById('mi-subject').value='';
+    document.getElementById('mi-body').value='';
+  }
+}
+async function analyzeInboxEmail(inboxId){
+  // Charger l'email depuis emails_inbox et l'analyser comme les autres
+  if(!db)return;
+  try{
+    const {data:em}=await db.from('emails_inbox').select('*').eq('id',inboxId).single();
+    if(!em)return;
+    // Ajouter à la liste locale et ouvrir la vue analyse
+    const localId=Date.now();
+    emails.push({id:localId,from:em.from_addr,subject:em.subject,body:em.body,date:isoD(new Date(em.received_at)),prev:em.body.slice(0,60),unread:true,done:false});
+    rEmails();
+    // Marquer comme traité
+    await db.from('emails_inbox').update({processed:true}).eq('id',inboxId);
+    // Naviguer vers l'analyse
+    setEmailTab('inbox',document.querySelectorAll('#sc-emails .tabs .tab')[0]);
+    setTimeout(()=>openEmail(localId),100);
+  }catch(e){showToast('Erreur : '+e.message);}
 }
 
 // ── SUPABASE STORAGE ──────────────────────────────────────────────────────
@@ -1493,17 +1921,20 @@ function rSettings(){
   const rl={admin:'Admin',resp:'Responsable',worker:'Intervenant'};
   const rc={admin:'#EEEDFE:#3C3489',resp:'#E6F1FB:#0C447C',worker:'var(--bg2):var(--txt2)'};
   const [rbg,rclr]=(rc[curRole]||rc.worker).split(':');
+  const avatarHtml = curProfile.avatar_url
+    ? `<img src="${curProfile.avatar_url}" style="width:100%;height:100%;object-fit:cover" alt="avatar">`
+    : `<span style="font-size:14px;font-weight:700;color:var(--txt)">${curUserName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?'}</span>`;
   document.getElementById('settings-body').innerHTML=`
     <div>
       <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Mon compte</div>
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg1);border-radius:12px">
-        <div style="width:40px;height:40px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--txt);flex-shrink:0">${curUserName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?'}</div>
+      <button onclick="goProfile()" style="width:100%;display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg1);border-radius:14px;border:.5px solid var(--border2);cursor:pointer;text-align:left">
+        <div style="width:46px;height:46px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${avatarHtml}</div>
         <div style="flex:1;min-width:0">
-          <div id="cur-user-name" style="font-size:14px;font-weight:600;color:var(--txt)">${curUserName}</div>
-          <div style="font-size:11px;color:var(--txt2);margin-top:1px">${curUserId?curUserId.slice(0,8)+'…':''}</div>
+          <div style="font-size:14px;font-weight:600;color:var(--txt)">${curUserName}</div>
+          <div style="font-size:11px;color:var(--txt2);margin-top:2px">${curProfile.metier||'Modifier mon profil →'}</div>
         </div>
-        <span id="cur-role-badge" class="chip" style="background:${rbg};color:${rclr};flex-shrink:0">${rl[curRole]||curRole}</span>
-      </div>
+        <span class="chip" style="background:${rbg};color:${rclr};flex-shrink:0">${rl[curRole]||curRole}</span>
+      </button>
     </div>
     <div>
       <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Mode de saisie</div>
@@ -1524,6 +1955,17 @@ function rSettings(){
       <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Équipe</div>
       <div id="members-list"><div style="font-size:12px;color:var(--txt3)">Chargement…</div></div>
     </div>
+    <div style="display:${curRole==='admin'||curRole==='resp'?'':'none'}">
+      <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Projets</div>
+      <button onclick="goSharing()" style="width:100%;display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--bg1);border-radius:12px;border:.5px solid var(--border2);cursor:pointer;text-align:left">
+        <i class="ti ti-share" style="font-size:18px;color:var(--txt2)"></i>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--txt)">Partage des projets</div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:1px">Voir et gérer les accès par projet</div>
+        </div>
+        <i class="ti ti-chevron-right" style="color:var(--txt3)"></i>
+      </button>
+    </div>
     <div id="settings-admin-section" style="display:${curRole==='admin'?'':'none'}">
       <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Invitations <span style="font-size:10px;font-weight:400;color:var(--txt3)">(admin)</span></div>
       <p style="font-size:12px;color:var(--txt3);margin-bottom:10px">Génère un lien unique valable 7 jours pour inviter un membre.</p>
@@ -1536,8 +1978,8 @@ function rSettings(){
     <div>
       <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Horaires notifications</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <div class="fg" style="margin:0"><label>Début</label><input type="time" value="07:30" style="width:100%"></div>
-        <div class="fg" style="margin:0"><label>Fin</label><input type="time" value="18:00" style="width:100%"></div>
+        <div class="fg" style="margin:0"><label>Début</label><input type="time" id="notif-start-inp" value="${curProfile.notif_start||'07:30'}" onchange="saveNotifHours()" style="width:100%"></div>
+        <div class="fg" style="margin:0"><label>Fin</label><input type="time" id="notif-end-inp" value="${curProfile.notif_end||'18:00'}" onchange="saveNotifHours()" style="width:100%"></div>
       </div>
       <p style="font-size:12px;color:var(--txt3);margin-top:6px">Notifications uniquement dans cette plage horaire.</p>
     </div>
@@ -1549,6 +1991,16 @@ function rSettings(){
 }
 function addMet(){const v=document.getElementById('new-met-inp').value.trim();if(!v)return;METIERS.push(v);rSettings();}
 function remMet(i){METIERS.splice(i,1);rSettings();}
+async function saveNotifHours(){
+  const s=document.getElementById('notif-start-inp')?.value;
+  const e=document.getElementById('notif-end-inp')?.value;
+  if(!s||!e)return;
+  curProfile.notif_start=s; curProfile.notif_end=e;
+  if(supabase&&curUserId){
+    await db.from('user_profiles').update({notif_start:s,notif_end:e}).eq('id',curUserId);
+  }
+  showToast('Horaires enregistrés ✓');
+}
 
 // ── PROJETS ──────────────────────────────────────────────────────────────────
 const PJ_TYPES = {chantier:'Chantier naval',prestation:'Prestation de service',production:'Production TPU',rh:'RH / Interne',autre:'Autre'};
@@ -1556,9 +2008,9 @@ const PJ_STATUS = {actif:{l:'Actif',bg:'#EAF3DE',c:'#27500A'},pause:{l:'En pause
 const PJ_TYPE_ICONS = {chantier:'ti-anchor',prestation:'ti-tool',production:'ti-3d-cube-sphere',rh:'ti-users',autre:'ti-folder'};
 
 let projets = [
-  {id:1, nom:'Nomade 7 — Refit électronique', type:'chantier', client:'Propriétaire Nomade 7', resp:1, statut:'actif', avancement:35, budget:28000, dateDebut:'2026-03-01', dateFin:'2026-07-31', notes:'Refonte complète électronique/électrique — 72 tâches réparties sur 18 zones.', updates:[{date:'2026-05-10',note:'Zone tech babord 60% avancée. Batterie salon terminée.',av:35}]},
-  {id:2, nom:'DAMEO — Prestation matelotage', type:'prestation', client:'Divers clients Morbihan', resp:1, statut:'actif', avancement:60, budget:8500, dateDebut:'2026-01-01', dateFin:'2026-12-31', notes:'Interventions ponctuelles rigging, gréement, maintenance.', updates:[]},
-  {id:3, nom:'DAMEO EDGE — Protections TPU', type:'production', client:'Karver / Facnor / Profurl', resp:1, statut:'actif', avancement:20, budget:15000, dateDebut:'2026-02-01', dateFin:'2026-12-31', notes:'Développement gamme protections TPU pour accastillage haut de gamme. P1S + RatRig V-Core 4 IDEX planifié.', updates:[{date:'2026-04-28',note:'Devis FC Cube France validé. Config Filaflex 82A calibrée.',av:20}]},
+  {id:1, nom:'Nomade 7 — Refit électronique', type:'chantier', client:'Propriétaire Nomade 7', resp:1, statut:'actif', avancement:35, budget:28000, dateDebut:'2026-03-01', dateFin:'2026-07-31', notes:'Refonte complète électronique/électrique — 72 tâches réparties sur 18 zones.', updates:[{date:'2026-05-10',note:'Zone tech babord 60% avancée. Batterie salon terminée.',av:35}], shared_with:[]},
+  {id:2, nom:'DAMEO — Prestation matelotage', type:'prestation', client:'Divers clients Morbihan', resp:1, statut:'actif', avancement:60, budget:8500, dateDebut:'2026-01-01', dateFin:'2026-12-31', notes:'Interventions ponctuelles rigging, gréement, maintenance.', updates:[], shared_with:[]},
+  {id:3, nom:'DAMEO EDGE — Protections TPU', type:'production', client:'Karver / Facnor / Profurl', resp:1, statut:'actif', avancement:20, budget:15000, dateDebut:'2026-02-01', dateFin:'2026-12-31', notes:'Développement gamme protections TPU pour accastillage haut de gamme. P1S + RatRig V-Core 4 IDEX planifié.', updates:[{date:'2026-04-28',note:'Devis FC Cube France validé. Config Filaflex 82A calibrée.',av:20}], shared_with:[]},
 ];
 let nPjId = 4;
 let curPjId = null;
