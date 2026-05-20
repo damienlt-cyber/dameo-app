@@ -538,7 +538,8 @@ let curRole      = 'worker';   // 'admin' | 'resp' | 'worker'
 let curUserId    = null;
 let curUserName  = '';
 let curInputMode = 'structured'; // 'structured' | 'rapide' | 'vocal' | 'photo'
-let fabPhotoData = null;
+let fabPhotoData = null;  // base64 pour preview avant création tâche
+let fabPhotoFile = null;  // File object pour upload Supabase Storage
 let _inviteToken = null;
 let _inviteRole  = 'worker';
 
@@ -743,9 +744,26 @@ function showModePicker() {
 function onFabPhoto(input) {
   const file = input.files[0];
   if (!file) return;
+  fabPhotoFile = file;
   const reader = new FileReader();
   reader.onload = e => { fabPhotoData = e.target.result; openAddTask(); input.value = ''; };
   reader.readAsDataURL(file);
+}
+
+// ── SUPABASE STORAGE ──────────────────────────────────────────────────────
+async function uploadPhoto(file, taskId) {
+  if (!db) return null;
+  try {
+    const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `tasks/${taskId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error } = await db.storage.from('task-photos').upload(path, file, { cacheControl: '3600', upsert: false });
+    if (error) throw error;
+    const { data: { publicUrl } } = db.storage.from('task-photos').getPublicUrl(path);
+    return publicUrl;
+  } catch(e) {
+    console.warn('uploadPhoto:', e.message);
+    return null;
+  }
 }
 
 function showToast(msg) {
@@ -1025,7 +1043,29 @@ function confirmRefuse() {
   rStats();
 }
 function svNote(){const t=tasks.find(x=>x.id===curTid);if(t){t.notes=document.getElementById('d-notes').value;saveAll();}alert('Note enregistrée.');}
-function addPh(e){const t=tasks.find(x=>x.id===curTid);if(!t)return;Array.from(e.target.files).forEach(f=>{const r=new FileReader();r.onload=ev=>{t.photos.push(ev.target.result);saveAll();openTD(curTid);};r.readAsDataURL(f);});}
+async function addPh(e) {
+  const t = tasks.find(x => x.id === curTid); if (!t) return;
+  const MAX = 5;
+  const files = Array.from(e.target.files).slice(0, MAX - t.photos.length);
+  if (!files.length) return showToast(`Maximum ${MAX} photos par tâche.`);
+  const btn = document.querySelector('.ph-zone');
+  if (btn) btn.textContent = 'Envoi en cours…';
+  for (const f of files) {
+    if (f.size > 10 * 1024 * 1024) { showToast('Fichier trop lourd (max 10 Mo)'); continue; }
+    const url = await uploadPhoto(f, curTid);
+    if (url) {
+      t.photos.push(url);
+    } else {
+      // Fallback base64 si Storage indisponible
+      await new Promise(res => {
+        const r = new FileReader();
+        r.onload = ev => { t.photos.push(ev.target.result); res(); };
+        r.readAsDataURL(f);
+      });
+    }
+  }
+  saveAll(); openTD(curTid);
+}
 function vPhoto(src){const ov=document.createElement('div');ov.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);z-index:9999;display:flex;align-items:center;justify-content:center';ov.innerHTML=`<img src="${src}" style="max-width:100%;max-height:100%;object-fit:contain">`;ov.onclick=()=>document.body.removeChild(ov);document.body.appendChild(ov);}
 function shrTask(){const t=tasks.find(x=>x.id===curTid);if(!t)return;const u=contacts.find(c=>c.id===t.assignee);const txt=`[Nomade 7] ${t.zone} — ${t.name}\nStatut: ${t.statut} | Prio: ${t.prio}${t.deadline?` | Échéance: ${fd(t.deadline)}`:''}${u?` | Assigné: ${u.name}`:''}`;if(navigator.share)navigator.share({title:'Nomade 7',text:txt});else navigator.clipboard.writeText(txt).then(()=>alert('Copié'));}
 
@@ -1053,16 +1093,24 @@ function openAddTask(prePjId) {
 }
 function selStat(el){statNew=el.dataset.s;const ss=SS;document.querySelectorAll('#nt-stat-row .sc').forEach(b=>{const s=b.dataset.s;if(s===statNew){b.style.background=ss[s].bg;b.style.color=ss[s].c;b.style.borderColor=ss[s].bd;b.style.fontWeight='600';}else{b.style.background='var(--bg0)';b.style.color='var(--txt2)';b.style.borderColor='var(--border2)';b.style.fontWeight='400';}});}
 function chkDl(){const h=document.getElementById('nt-p').value==='▲ Haute';document.getElementById('dl-req').style.display=h?'inline':'none';document.getElementById('dl-note').style.display=h?'block':'none';}
-function addTask(){
+async function addTask(){
   const n=document.getElementById('nt-n').value.trim();const p=document.getElementById('nt-p').value;const dl=document.getElementById('nt-dl').value;
   if(!n)return alert('Nom requis');if(p==='▲ Haute'&&!dl)return alert('Date limite obligatoire pour haute priorité');
-  const aid=document.getElementById('nt-a').value;
-  const newPhotos = fabPhotoData ? [fabPhotoData] : [];
-  fabPhotoData = null;
+  const aid = document.getElementById('nt-a').value;
   const pjVal = document.getElementById('nt-pj').value;
-  tasks.push({id:nTid++,zone:document.getElementById('nt-z').value,name:n,statut:statNew,prio:p,notes:document.getElementById('nt-no').value,deadline:dl||null,metier:document.getElementById('nt-m').value||null,assignee:aid?parseInt(aid):null,photos:newPhotos,projet_id:pjVal?parseInt(pjVal):null,history:[]});
-  closeModal('m-task');rStats();rTasks();rMetiers();saveAll();
-  // Si on était dans un projet, revenir au détail du projet
+  const newTask = {id:nTid++,zone:document.getElementById('nt-z').value,name:n,statut:statNew,prio:p,notes:document.getElementById('nt-no').value,deadline:dl||null,metier:document.getElementById('nt-m').value||null,assignee:aid?parseInt(aid):null,photos:[],projet_id:pjVal?parseInt(pjVal):null,history:[]};
+  tasks.push(newTask);
+  closeModal('m-task');
+  // Upload la photo FAB si présente (après fermeture du modal pour fluidité)
+  if (fabPhotoFile) {
+    const url = await uploadPhoto(fabPhotoFile, newTask.id);
+    if (url) newTask.photos.push(url);
+    else if (fabPhotoData) newTask.photos.push(fabPhotoData); // fallback base64
+  } else if (fabPhotoData) {
+    newTask.photos.push(fabPhotoData); // fallback si Storage non configuré
+  }
+  fabPhotoFile = null; fabPhotoData = null;
+  rStats();rTasks();rMetiers();saveAll();
   if (pjVal && curPjId && parseInt(pjVal) === curPjId) openProjet(curPjId);
 }
 
