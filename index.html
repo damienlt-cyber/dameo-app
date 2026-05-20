@@ -42,10 +42,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .gantt-nav-btn{display:flex}
   body{background:var(--bg0)}
   /* Plein écran, sans widget téléphone */
-  .phone{max-width:none;margin:0;border-radius:0;border:none;box-shadow:none;height:100dvh;max-height:100dvh;padding-left:220px}
+  .phone{max-width:none;margin:0;border-radius:0;border:none;box-shadow:none;height:100dvh;max-height:100dvh;padding-left:var(--sidebar-w,220px);transition:padding-left .25s}
   /* Sidebar fixe à gauche */
-  .bnav{position:fixed;top:0;left:0;bottom:0;width:220px;flex-direction:column;border-top:none;border-right:.5px solid var(--border);background:var(--bg0);padding:24px 10px 24px;justify-content:flex-start;gap:2px;overflow-y:auto;z-index:50;flex-shrink:0}
-  .bnav::before{content:'Nomade 7';font-size:17px;font-weight:700;color:var(--txt);display:block;padding:2px 12px;margin-bottom:20px;letter-spacing:-.3px}
+  .bnav{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w,220px);flex-direction:column;border-top:none;border-right:.5px solid var(--border);background:var(--bg0);padding:16px 10px 24px;justify-content:flex-start;gap:2px;overflow-y:auto;z-index:50;flex-shrink:0;transition:width .25s}
+  .bnav::before{display:none} /* Remplacé par .bnav-brand HTML */
+  /* Sidebar collapsée */
+  body.sb-col{--sidebar-w:64px}
+  body.sb-col .bnav button span,.bnav-brand-name{transition:opacity .2s}
+  body.sb-col .bnav button span{opacity:0;width:0;overflow:hidden;pointer-events:none}
+  body.sb-col .bnav-brand-name{opacity:0;width:0;overflow:hidden}
+  body.sb-col .bnav button{justify-content:center;padding:9px 0}
+  body.sb-col .bnav-brand{justify-content:center}
+  body.sb-col .bnav-bottom{display:none}
+  /* Brand / logo dans la sidebar */
+  .bnav-brand{display:flex;align-items:center;gap:9px;padding:4px 8px;margin-bottom:14px;cursor:pointer;min-height:48px;flex-shrink:0}
+  .bnav-brand-logo{width:32px;height:32px;border-radius:9px;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:var(--bg2)}
+  .bnav-brand-logo img{width:100%;height:100%;object-fit:contain}
+  .bnav-brand-name{font-size:16px;font-weight:700;color:var(--sidebar-txt,var(--txt));letter-spacing:-.3px;flex:1;white-space:nowrap}
+  #sidebar-burger{background:none;border:none;cursor:pointer;color:var(--sidebar-txt2,var(--txt3));font-size:18px;padding:4px;display:flex;flex-shrink:0;border-radius:7px;transition:background .15s;width:auto;flex:none}
+  #sidebar-burger:hover{background:var(--sidebar-active,var(--bg2))}
+  .bnav-bottom{border-top:.5px solid rgba(128,128,128,.2);padding-top:8px;margin-top:4px;flex-shrink:0}
+  /* Wallpaper : body transparent / sidebar glass */
+  body.has-wallpaper{background-size:cover!important;background-attachment:fixed!important;background-position:center!important}
+  body.has-wallpaper .phone{background:transparent!important}
+  /* Modales centrées */
   .bnav button{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;padding:9px 14px;border-radius:10px;font-size:14px;width:100%;flex:none;border:none;background:none;cursor:pointer;color:var(--txt3);font-family:inherit}
   .bnav button.on{background:var(--bg2);color:var(--txt)}
   .bnav button i{font-size:20px;flex-shrink:0}
@@ -62,6 +82,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .ov{align-items:center}
   .sh{border-radius:16px;max-width:580px;max-height:85vh}
 }
+/* ── DRAWER MOBILE (hamburger) ── */
+.bnav-brand{display:none} /* masqué mobile */
+#mobile-burger{display:flex;align-items:center;justify-content:flex-start;gap:10px;padding:9px 14px;border-radius:10px;font-size:14px;flex:1;border:none;background:none;cursor:pointer;color:var(--txt3);font-family:inherit}
+#mobile-burger i{font-size:20px}
+#nav-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:150;backdrop-filter:blur(2px)}
+#nav-drawer{position:fixed;top:0;left:-280px;bottom:0;width:260px;background:var(--bg0);z-index:151;display:flex;flex-direction:column;padding:0 10px 24px;gap:2px;overflow-y:auto;transition:left .25s cubic-bezier(.4,0,.2,1);border-right:.5px solid var(--border)}
+#nav-drawer.open{left:0}
+#nav-drawer .drawer-brand{display:flex;align-items:center;gap:10px;padding:20px 10px 18px;margin-bottom:4px;border-bottom:.5px solid var(--border)}
+#nav-drawer .drawer-logo{width:36px;height:36px;border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--bg2);flex-shrink:0}
+#nav-drawer button{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;padding:10px 14px;border-radius:10px;font-size:14px;width:100%;border:none;background:none;cursor:pointer;color:var(--txt2);font-family:inherit}
+#nav-drawer button.on,#nav-drawer button:hover{background:var(--bg2);color:var(--txt)}
+#nav-drawer button i{font-size:20px;flex-shrink:0}
+#nav-drawer .drawer-sep{height:.5px;background:var(--border);margin:8px 10px}
+#nav-drawer .drawer-spacer{flex:1}
+@media(min-width:900px){#mobile-burger{display:none}#nav-overlay,#nav-drawer{display:none!important}}
 .screen{display:none;flex-direction:column;flex:1;overflow:hidden}
 .screen.active{display:flex}
 .scroll{overflow-y:auto;flex:1}
@@ -607,6 +642,15 @@ body.has-wallpaper .bnav{background:var(--sidebar-bg,rgba(10,20,38,.82))!importa
 
 <!-- BOTTOM NAV -->
 <div class="bnav" id="bnav">
+  <!-- Brand sidebar (desktop uniquement) -->
+  <div class="bnav-brand" id="bnav-brand" onclick="goProfile()">
+    <div class="bnav-brand-logo" id="bnav-logo-el"><i class="ti ti-anchor" style="font-size:18px;color:var(--txt2)"></i></div>
+    <span class="bnav-brand-name" id="bnav-brand-name">Nomade 7</span>
+    <button id="sidebar-burger" onclick="event.stopPropagation();toggleSidebar()" title="Réduire"><i class="ti ti-layout-sidebar-left-collapse"></i></button>
+  </div>
+  <!-- Nav mobile burger -->
+  <button id="mobile-burger" onclick="openDrawer()" aria-label="Menu"><i class="ti ti-menu-2"></i><span>Menu</span></button>
+  <!-- Items principaux -->
   <button class="on" onclick="switchMain('sc-jobs',this)" aria-label="Job list"><i class="ti ti-list-check"></i><span>Job list</span></button>
   <button onclick="switchMain('sc-projets',this)" aria-label="Projets"><i class="ti ti-briefcase"></i><span>Projets</span></button>
   <button onclick="switchMain('sc-agenda',this)" aria-label="Agenda"><i class="ti ti-calendar"></i><span>Agenda</span></button>
@@ -615,6 +659,35 @@ body.has-wallpaper .bnav{background:var(--sidebar-bg,rgba(10,20,38,.82))!importa
   <button onclick="switchMain('sc-contacts',this)" aria-label="Contacts"><i class="ti ti-users"></i><span>Contacts</span></button>
   <button class="gantt-nav-btn" onclick="switchMain('sc-gantt',this)" aria-label="Gantt"><i class="ti ti-chart-gantt"></i><span>Gantt</span></button>
   <button class="gantt-nav-btn" onclick="goSharing()" aria-label="Partage"><i class="ti ti-share-2"></i><span>Partage</span></button>
+  <!-- Bas de sidebar (desktop) -->
+  <div class="bnav-bottom">
+    <button class="gantt-nav-btn" onclick="goProfile()" aria-label="Profil"><i class="ti ti-user-circle"></i><span>Mon profil</span></button>
+    <button class="gantt-nav-btn" onclick="goSettings()" aria-label="Paramètres"><i class="ti ti-settings"></i><span>Paramètres</span></button>
+  </div>
+</div>
+
+<!-- DRAWER MOBILE -->
+<div id="nav-overlay" onclick="closeDrawer()"></div>
+<div id="nav-drawer">
+  <div class="drawer-brand">
+    <div class="drawer-logo" id="drawer-logo-el"><i class="ti ti-anchor" style="font-size:18px;color:var(--txt2)"></i></div>
+    <div>
+      <div id="drawer-name" style="font-size:15px;font-weight:700;color:var(--txt)">Nomade 7</div>
+      <div id="drawer-role" style="font-size:11px;color:var(--txt2)"></div>
+    </div>
+  </div>
+  <button onclick="closeDrawer();switchMainD('sc-jobs')"><i class="ti ti-list-check"></i><span>Job list</span></button>
+  <button onclick="closeDrawer();switchMainD('sc-projets')"><i class="ti ti-briefcase"></i><span>Projets</span></button>
+  <button onclick="closeDrawer();switchMainD('sc-agenda')"><i class="ti ti-calendar"></i><span>Agenda</span></button>
+  <button onclick="closeDrawer();switchMainD('sc-emails')"><i class="ti ti-mail"></i><span>Emails</span></button>
+  <button onclick="closeDrawer();switchMainD('sc-reu')"><i class="ti ti-microphone"></i><span>Réunions</span></button>
+  <button onclick="closeDrawer();switchMainD('sc-contacts')"><i class="ti ti-users"></i><span>Contacts</span></button>
+  <button onclick="closeDrawer();switchMainD('sc-gantt')"><i class="ti ti-chart-gantt"></i><span>Gantt</span></button>
+  <button onclick="closeDrawer();goSharing()"><i class="ti ti-share-2"></i><span>Partage projets</span></button>
+  <div class="drawer-sep"></div>
+  <div class="drawer-spacer"></div>
+  <button onclick="closeDrawer();goProfile()"><i class="ti ti-user-circle"></i><span>Mon profil</span></button>
+  <button onclick="closeDrawer();goSettings()"><i class="ti ti-settings"></i><span>Paramètres</span></button>
 </div>
 </div><!-- .phone -->
 
@@ -643,17 +716,29 @@ let curProfile = { avatar_url:null, logo_url:null, metier:'', phone:'', notif_st
 
 // ── APPARENCE ──────────────────────────────────────────────────────────────
 const WP_DATA = [
-  {id:'none',  label:'Défaut',   thumb:'var(--bg0)',   value:''},
-  {id:'c1',    label:'Marine',   thumb:'#0A1628',      value:'#0A1628'},
-  {id:'c2',    label:'Océan',    thumb:'#0C2540',      value:'#0C2540'},
-  {id:'c3',    label:'Forêt',    thumb:'#0E2A1A',      value:'#0E2A1A'},
-  {id:'c4',    label:'Ardoise',  thumb:'#1C2333',      value:'#1C2333'},
-  {id:'c5',    label:'Violet',   thumb:'#1A1030',      value:'#1A1030'},
-  {id:'p1',    label:'Régate',   thumb:'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=1920&q=80&auto=format&fit=crop'},
-  {id:'p2',    label:'Voilier',  thumb:'https://images.unsplash.com/photo-1559524284-a0c7ec04cf11?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1559524284-a0c7ec04cf11?w=1920&q=80&auto=format&fit=crop'},
-  {id:'p3',    label:'Large',    thumb:'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1920&q=80&auto=format&fit=crop'},
-  {id:'p4',    label:'Coucher',  thumb:'https://images.unsplash.com/photo-1519659528534-7fd733a832a0?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1519659528534-7fd733a832a0?w=1920&q=80&auto=format&fit=crop'},
-  {id:'p5',    label:'Sillage',  thumb:'https://images.unsplash.com/photo-1488557836843-4066890e4b0a?w=120&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1488557836843-4066890e4b0a?w=1920&q=80&auto=format&fit=crop'},
+  // Défaut
+  {id:'none', label:'Défaut',    thumb:'',       value:''},
+  // Sombres / neutres
+  {id:'c1',  label:'Marine',    thumb:'#0A1828', value:'#0A1828'},
+  {id:'c2',  label:'Nuit',      thumb:'#070712', value:'#070712'},
+  {id:'c3',  label:'Ardoise',   thumb:'#1C2B3A', value:'#1C2B3A'},
+  {id:'c4',  label:'Forêt',     thumb:'#0B2B18', value:'#0B2B18'},
+  {id:'c5',  label:'Prune',     thumb:'#2A0E38', value:'#2A0E38'},
+  {id:'c6',  label:'Rouille',   thumb:'#3A1508', value:'#3A1508'},
+  // Vifs / saturés
+  {id:'c7',  label:'Cobalt',    thumb:'#1440B0', value:'#1440B0'},
+  {id:'c8',  label:'Émeraude',  thumb:'#005C40', value:'#005C40'},
+  {id:'c9',  label:'Grenat',    thumb:'#8B1A2A', value:'#8B1A2A'},
+  {id:'c10', label:'Pétrole',   thumb:'#006070', value:'#006070'},
+  {id:'c11', label:'Indigo',    thumb:'#2D1B6E', value:'#2D1B6E'},
+  {id:'c12', label:'Bronze',    thumb:'#5C3A10', value:'#5C3A10'},
+  // Photos voile (Unsplash)
+  {id:'p1',  label:'Régate',    thumb:'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=100&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=1920&q=80&auto=format&fit=crop'},
+  {id:'p2',  label:'Voilier',   thumb:'https://images.unsplash.com/photo-1559524284-a0c7ec04cf11?w=100&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1559524284-a0c7ec04cf11?w=1920&q=80&auto=format&fit=crop'},
+  {id:'p3',  label:'Large',     thumb:'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=100&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1920&q=80&auto=format&fit=crop'},
+  {id:'p4',  label:'Coucher',   thumb:'https://images.unsplash.com/photo-1519659528534-7fd733a832a0?w=100&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1519659528534-7fd733a832a0?w=1920&q=80&auto=format&fit=crop'},
+  {id:'p5',  label:'Brume',     thumb:'https://images.unsplash.com/photo-1464275883549-d98e4c9cd080?w=100&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1464275883549-d98e4c9cd080?w=1920&q=80&auto=format&fit=crop'},
+  {id:'p6',  label:'Tempête',   thumb:'https://images.unsplash.com/photo-1505459668311-8dfac7952bf0?w=100&q=60&auto=format&fit=crop', value:'https://images.unsplash.com/photo-1505459668311-8dfac7952bf0?w=1920&q=80&auto=format&fit=crop'},
 ];
 const ACC_DATA = [
   {id:'default', label:'Auto',    dot:'var(--bg2)',  bg:'',        txt:'',        txt2:'',        active:''},
@@ -670,19 +755,23 @@ let curSidebarAcc = localStorage.getItem('sidebarAcc') || 'default';
 function applyWallpaper(value, save=true){
   curWallpaper = value;
   if(save) localStorage.setItem('wp', value);
-  const layer = document.getElementById('wallpaper-layer');
-  if(!layer) return;
+  const b = document.body;
   if(!value){
-    layer.style.backgroundImage=''; layer.style.backgroundColor='';
-    document.body.classList.remove('has-wallpaper');
+    b.style.backgroundImage=''; b.style.backgroundColor='';
+    b.classList.remove('has-wallpaper');
   } else if(value.startsWith('http')){
-    layer.style.backgroundImage=`url(${value})`; layer.style.backgroundColor='';
-    document.body.classList.add('has-wallpaper');
+    b.style.backgroundImage=`url(${value})`;
+    b.style.backgroundSize='cover';
+    b.style.backgroundAttachment='fixed';
+    b.style.backgroundPosition='center';
+    b.style.backgroundColor='';
+    b.classList.add('has-wallpaper');
   } else {
-    layer.style.backgroundImage=''; layer.style.backgroundColor=value;
-    document.body.classList.add('has-wallpaper');
+    b.style.backgroundImage='';
+    b.style.backgroundColor=value;
+    b.style.backgroundSize='';
+    b.classList.add('has-wallpaper');
   }
-  // Mettre à jour les thumbs dans le profil si ouverts
   document.querySelectorAll('.wp-thumb').forEach(el=>el.classList.toggle('sel', el.dataset.value===value));
 }
 function applySidebarAcc(id, save=true){
@@ -1085,6 +1174,56 @@ function updateTopbarAvatar(){
     const ini=curUserName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';
     btn.textContent=ini;
   }
+  updateNavLogo();
+}
+function updateNavLogo(){
+  // Sidebar desktop : logo ou icône ancre
+  const el=document.getElementById('bnav-logo-el');
+  const drawer=document.getElementById('drawer-logo-el');
+  const nameEl=document.getElementById('bnav-brand-name');
+  const drawerName=document.getElementById('drawer-name');
+  const drawerRole=document.getElementById('drawer-role');
+  const logoHtml=curProfile.logo_url
+    ?`<img src="${curProfile.logo_url}" style="width:100%;height:100%;object-fit:contain" alt="logo">`
+    :`<i class="ti ti-anchor" style="font-size:18px;color:var(--sidebar-txt2,var(--txt2))"></i>`;
+  if(el) el.innerHTML=logoHtml;
+  if(drawer) drawer.innerHTML=logoHtml;
+  if(nameEl) nameEl.textContent=curUserName||'Nomade 7';
+  if(drawerName) drawerName.textContent=curUserName||'Nomade 7';
+  if(drawerRole){const rl={admin:'Administrateur',resp:'Responsable',worker:'Intervenant'};drawerRole.textContent=rl[curRole]||curRole;}
+}
+
+// ── SIDEBAR BURGER & DRAWER ────────────────────────────────────────────────
+let _sidebarCol = localStorage.getItem('sb-col')==='1';
+function initSidebar(){
+  if(_sidebarCol) document.body.classList.add('sb-col');
+}
+function toggleSidebar(){
+  _sidebarCol=!_sidebarCol;
+  document.body.classList.toggle('sb-col',_sidebarCol);
+  localStorage.setItem('sb-col',_sidebarCol?'1':'0');
+  const btn=document.getElementById('sidebar-burger');
+  if(btn) btn.innerHTML=_sidebarCol
+    ?'<i class="ti ti-layout-sidebar-left-expand"></i>'
+    :'<i class="ti ti-layout-sidebar-left-collapse"></i>';
+}
+function openDrawer(){
+  document.getElementById('nav-overlay').style.display='block';
+  document.getElementById('nav-drawer').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeDrawer(){
+  document.getElementById('nav-overlay').style.display='none';
+  document.getElementById('nav-drawer').classList.remove('open');
+  document.body.style.overflow='';
+}
+function switchMainD(id){
+  const bnav=document.getElementById('bnav');
+  const btn=[...bnav.querySelectorAll('button')].find(b=>{
+    const oc=b.getAttribute('onclick')||'';
+    return oc.includes(`'${id}'`)||oc.includes(`"${id}"`);
+  });
+  if(btn) btn.click();
 }
 async function onAvatarChange(input){
   const file=input.files[0];if(!file)return;
@@ -1100,7 +1239,7 @@ async function onLogoChange(input){
   if(file.size>5*1024*1024)return showToast('Fichier trop lourd (max 5 Mo)');
   showToast('Envoi en cours…');
   const url=await uploadLogo(file);
-  if(url){rProfile();showToast('Logo mis à jour !');}
+  if(url){rProfile();updateNavLogo();showToast('Logo mis à jour !');}
   else showToast('Erreur lors de l\'envoi');
   input.value='';
 }
@@ -1108,7 +1247,7 @@ async function removeLogo(){
   if(!confirm('Supprimer le logo ?'))return;
   curProfile.logo_url=null;
   try{ if(db&&curUserId)await db.from('user_profiles').update({logo_url:null}).eq('id',curUserId); }catch(_){}
-  rProfile();showToast('Logo supprimé.');
+  rProfile();updateNavLogo();showToast('Logo supprimé.');
 }
 async function uploadAvatar(file){
   if(!db||!curUserId)return null;
@@ -2587,7 +2726,9 @@ async function showApp() {
   // Restaurer apparence depuis localStorage (avant loadUserProfile pour éviter flash)
   if(curWallpaper) applyWallpaper(curWallpaper, false);
   if(curSidebarAcc && curSidebarAcc!=='default') applySidebarAcc(curSidebarAcc, false);
+  initSidebar();
   await loadUserProfile();
+  updateNavLogo();
   fetchFromSupabase();
 }
 function showLogin() { document.getElementById('auth-screen').style.display = 'flex'; }
