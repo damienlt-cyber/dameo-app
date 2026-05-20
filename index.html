@@ -44,7 +44,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   /* Plein écran, sans widget téléphone */
   .phone{max-width:none;margin:0;border-radius:0;border:none;box-shadow:none;height:100dvh;max-height:100dvh;padding-left:var(--sidebar-w,220px);transition:padding-left .25s}
   /* Sidebar fixe à gauche */
-  .bnav{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w,220px);flex-direction:column;border-top:none;border-right:.5px solid var(--border);background:var(--bg0);padding:16px 10px 24px;justify-content:flex-start;gap:2px;overflow-y:auto;z-index:50;flex-shrink:0;transition:width .25s}
+  .bnav{position:fixed;top:0;left:0;bottom:0;width:var(--sidebar-w,220px);flex-direction:column;border-top:none;border-right:.5px solid var(--border);background:var(--bg0);padding:16px 10px 24px;justify-content:flex-start;gap:2px;overflow-y:auto;z-index:50;flex-shrink:0;transition:width .25s;overflow:hidden}
   .bnav::before{display:none} /* Remplacé par .bnav-brand HTML */
   /* Sidebar collapsée */
   body.sb-col{--sidebar-w:64px}
@@ -62,9 +62,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   #sidebar-burger{background:none;border:none;cursor:pointer;color:var(--sidebar-txt2,var(--txt3));font-size:18px;padding:4px;display:flex;flex-shrink:0;border-radius:7px;transition:background .15s;width:auto;flex:none}
   #sidebar-burger:hover{background:var(--sidebar-active,var(--bg2))}
   .bnav-bottom{border-top:.5px solid rgba(128,128,128,.2);padding-top:8px;margin-top:4px;flex-shrink:0}
-  /* Wallpaper : body transparent / sidebar glass */
-  body.has-wallpaper{background-size:cover!important;background-attachment:fixed!important;background-position:center!important}
-  body.has-wallpaper .phone{background:transparent!important}
+  /* Wallpaper : appliqué sur la sidebar + topbar glass */
+  body.has-wallpaper .bnav{background-size:cover!important;background-position:center fixed!important}
+  body.has-wallpaper .bnav::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.35);z-index:0;pointer-events:none}
+  body.has-wallpaper .bnav > *{position:relative;z-index:1}
   /* Modales centrées */
   .bnav button{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:10px;padding:9px 14px;border-radius:10px;font-size:14px;width:100%;flex:none;border:none;background:none;cursor:pointer;color:var(--txt3);font-family:inherit}
   .bnav button.on{background:var(--bg2);color:var(--txt)}
@@ -83,7 +84,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .sh{border-radius:16px;max-width:580px;max-height:85vh}
 }
 /* ── DRAWER MOBILE (hamburger) ── */
-.bnav-brand{display:none} /* masqué mobile */
+/* Sur mobile : bnav-brand masqué, burger visible */
+@media(max-width:899px){.bnav-brand{display:none!important}}
 #mobile-burger{display:flex;align-items:center;justify-content:flex-start;gap:10px;padding:9px 14px;border-radius:10px;font-size:14px;flex:1;border:none;background:none;cursor:pointer;color:var(--txt3);font-family:inherit}
 #mobile-burger i{font-size:20px}
 #nav-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:150;backdrop-filter:blur(2px)}
@@ -245,7 +247,8 @@ body.has-wallpaper .screen.active{background:var(--bg0)}
   .bnav button:hover:not(.on){background:var(--sidebar-active,var(--bg2))!important;opacity:.5}
   .bnav button i{color:inherit!important}
 }
-body.has-wallpaper .bnav{background:var(--sidebar-bg,rgba(10,20,38,.82))!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+/* Sidebar avec wallpaper : texte blanc pour lisibilité */
+body.has-wallpaper .bnav{--sidebar-txt:#fff!important;--sidebar-txt2:rgba(255,255,255,.7)!important;--sidebar-active:rgba(255,255,255,.15)!important;position:relative}
 /* Sélecteurs d'apparence dans le profil */
 .wp-thumb{width:48px;height:48px;border-radius:10px;border:2px solid transparent;cursor:pointer;transition:all .15s;background-size:cover;background-position:center;flex-shrink:0}
 .wp-thumb.sel{border-color:var(--txt);box-shadow:0 0 0 3px rgba(0,0,0,.15)}
@@ -755,21 +758,24 @@ let curSidebarAcc = localStorage.getItem('sidebarAcc') || 'default';
 function applyWallpaper(value, save=true){
   curWallpaper = value;
   if(save) localStorage.setItem('wp', value);
+  const bnav = document.getElementById('bnav');
   const b = document.body;
   if(!value){
+    // Réinitialiser
+    if(bnav){ bnav.style.backgroundImage=''; bnav.style.backgroundColor=''; }
     b.style.backgroundImage=''; b.style.backgroundColor='';
     b.classList.remove('has-wallpaper');
   } else if(value.startsWith('http')){
-    b.style.backgroundImage=`url(${value})`;
-    b.style.backgroundSize='cover';
-    b.style.backgroundAttachment='fixed';
-    b.style.backgroundPosition='center';
-    b.style.backgroundColor='';
+    // Photo : sidebar + body (mobile)
+    const css=`url(${value})`;
+    if(bnav){ bnav.style.backgroundImage=css; bnav.style.backgroundColor=''; }
+    b.style.backgroundImage=css;
+    b.style.backgroundSize='cover'; b.style.backgroundAttachment='fixed'; b.style.backgroundPosition='center';
     b.classList.add('has-wallpaper');
   } else {
-    b.style.backgroundImage='';
-    b.style.backgroundColor=value;
-    b.style.backgroundSize='';
+    // Couleur unie
+    if(bnav){ bnav.style.backgroundImage=''; bnav.style.backgroundColor=value; }
+    b.style.backgroundImage=''; b.style.backgroundColor=value;
     b.classList.add('has-wallpaper');
   }
   document.querySelectorAll('.wp-thumb').forEach(el=>el.classList.toggle('sel', el.dataset.value===value));
