@@ -196,6 +196,32 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   .dep-bar{padding:12px 20px}
   #settings-body{padding:16px 20px}
 }
+
+/* ── PHASE 3 — DESKTOP 3 COLONNES ── */
+#jobs-left{display:flex;flex-direction:column;flex:1;overflow:hidden}
+#jobs-right{display:none}
+@media(min-width:900px){
+  #sc-jobs{flex-direction:row}
+  #jobs-left{flex:none;width:400px;border-right:.5px solid var(--border);overflow:hidden}
+  #jobs-right{display:flex;flex-direction:column;flex:1;overflow:hidden;background:var(--bg0)}
+  /* Highlight tâche sélectionnée */
+  .tc-active{background:var(--bg1) !important;border-color:var(--border2) !important;box-shadow:inset 3px 0 0 var(--txt)}
+  /* Réinitialiser les padding larges dans la colonne gauche (400px) */
+  #jobs-left .stats{grid-template-columns:repeat(2,1fr);padding:10px 16px}
+  #jobs-left .filters{padding:8px 16px}
+  #jobs-left .zone-hd{padding:6px 16px 3px}
+  #jobs-left .tlist{padding:0 16px;display:flex;flex-direction:column;gap:6px}
+  #jobs-left .fab-row{padding:10px 16px}
+  #jobs-left .qbox{margin:0 16px 12px}
+  #jobs-left .topbar{padding:12px 16px 10px}
+  #jobs-left .notif{margin:8px 16px}
+  /* Panneau droit */
+  #td-panel-body .ds{padding:0 24px 16px}
+  #td-panel-body .ph-grid{grid-template-columns:repeat(3,1fr)}
+}
+/* ── SKELETON SHIMMER ── */
+@keyframes skel-pulse{0%,100%{opacity:.35}50%{opacity:.8}}
+.skel{background:var(--bg2);animation:skel-pulse 1.6s ease-in-out infinite;border-radius:8px}
 </style>
 </head>
 <body>
@@ -203,56 +229,72 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <!-- JOB LIST -->
 <div id="sc-jobs" class="screen active">
-  <div class="topbar">
-    <i class="ti ti-sailboat" style="font-size:19px;color:var(--txt2)" aria-hidden="true"></i>
-    <h1>Nomade 7</h1>
-    <button class="ib" onclick="goSettings()" aria-label="Paramètres"><i class="ti ti-settings"></i></button>
-    <button class="ib" onclick="authLogout()" aria-label="Déconnexion" title="Se déconnecter" style="color:var(--txt3)"><i class="ti ti-logout"></i></button>
-  </div>
-  <div id="notif-bar" class="notif" style="display:none">
-    <i class="ti ti-bell" style="font-size:17px;color:#378ADD" aria-hidden="true"></i>
-    <div id="notif-bar-txt" style="flex:1;font-size:13px;color:var(--blue-c)"></div>
-    <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:16px;color:#378ADD;padding:0" aria-label="Fermer">×</button>
-  </div>
-  <div id="stats-bar" class="stats"></div>
-  <div class="tabs">
-    <button class="tab on" onclick="setJTab('tasks',this)">Tâches</button>
-    <button class="tab" onclick="setJTab('metiers',this)">Métiers</button>
-    <button class="tab" onclick="setJTab('rapide',this)">Prise rapide</button>
-  </div>
-  <!-- TASKS -->
-  <div id="jt-tasks" class="scroll">
-    <div class="filters" id="filters"></div>
-    <div id="task-list"></div>
-    <div class="fab-row">
-      <button class="fab-s" onclick="setJTab('rapide',document.querySelectorAll('.tabs .tab')[2])" title="Prise rapide" aria-label="Prise rapide"><i class="ti ti-microphone"></i></button>
-      <button class="fab" id="main-fab" onclick="openFab()" aria-label="Ajouter"><i id="main-fab-icon" class="ti ti-plus"></i></button>
+  <!-- Colonne gauche : liste des tâches -->
+  <div id="jobs-left">
+    <div class="topbar">
+      <i class="ti ti-sailboat" style="font-size:19px;color:var(--txt2)" aria-hidden="true"></i>
+      <h1>Nomade 7</h1>
+      <button class="ib" onclick="goSettings()" aria-label="Paramètres"><i class="ti ti-settings"></i></button>
+      <button class="ib" onclick="authLogout()" aria-label="Déconnexion" title="Se déconnecter" style="color:var(--txt3)"><i class="ti ti-logout"></i></button>
     </div>
-    <input type="file" id="fab-photo-input" accept="image/*" capture="environment" style="display:none" onchange="onFabPhoto(this)">
-  </div>
-  <!-- MÉTIERS -->
-  <div id="jt-metiers" class="scroll" style="display:none">
-    <div class="met-grid" id="met-grid"></div>
-  </div>
-  <!-- PRISE RAPIDE -->
-  <div id="jt-rapide" class="scroll" style="display:none">
-    <div style="padding:11px 16px 7px;font-size:13px;color:var(--txt2);line-height:1.5">Dictez ou tapez — zone, métier et assigné déduits automatiquement.</div>
-    <div class="qbox">
-      <div style="display:flex;gap:8px;align-items:flex-end">
-        <textarea class="qta" id="q-text" placeholder="Ex: capteur eau mât priorité haute Julien…"></textarea>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          <button class="qb" id="q-mic" onclick="toggleVoice()" aria-label="Dicter"><i class="ti ti-microphone"></i></button>
-          <button class="qb send" onclick="parseQ()" aria-label="Analyser"><i class="ti ti-arrow-right"></i></button>
-        </div>
+    <div id="notif-bar" class="notif" style="display:none">
+      <i class="ti ti-bell" style="font-size:17px;color:#378ADD" aria-hidden="true"></i>
+      <div id="notif-bar-txt" style="flex:1;font-size:13px;color:var(--blue-c)"></div>
+      <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;cursor:pointer;font-size:16px;color:#378ADD;padding:0" aria-label="Fermer">×</button>
+    </div>
+    <div id="stats-bar" class="stats"></div>
+    <div class="tabs">
+      <button class="tab on" onclick="setJTab('tasks',this)">Tâches</button>
+      <button class="tab" onclick="setJTab('metiers',this)">Métiers</button>
+      <button class="tab" onclick="setJTab('rapide',this)">Prise rapide</button>
+    </div>
+    <!-- TASKS -->
+    <div id="jt-tasks" class="scroll">
+      <div class="filters" id="filters"></div>
+      <div id="task-list"></div>
+      <div class="fab-row">
+        <button class="fab-s" onclick="setJTab('rapide',document.querySelectorAll('.tabs .tab')[2])" title="Prise rapide" aria-label="Prise rapide"><i class="ti ti-microphone"></i></button>
+        <button class="fab" id="main-fab" onclick="openFab()" aria-label="Ajouter"><i id="main-fab-icon" class="ti ti-plus"></i></button>
       </div>
-      <div style="margin-top:8px;font-size:11px;color:var(--txt2);margin-bottom:5px">Métier :</div>
-      <div class="tag-row" id="q-met" style="display:flex;gap:5px;flex-wrap:wrap"></div>
-      <div style="margin-top:8px;font-size:11px;color:var(--txt2);margin-bottom:5px">Zone :</div>
-      <div id="q-zone" style="display:flex;gap:5px;flex-wrap:wrap;max-height:72px;overflow-y:auto"></div>
-      <div id="q-prev" style="display:none;margin-top:8px;padding:8px 10px;background:var(--bg1);border-radius:9px;font-size:12px;color:var(--txt2);line-height:1.7"></div>
+      <input type="file" id="fab-photo-input" accept="image/*" capture="environment" style="display:none" onchange="onFabPhoto(this)">
     </div>
-    <div class="fab-row">
-      <button class="fab" id="q-ok" onclick="confirmQ()" style="opacity:.4;pointer-events:none" aria-label="Confirmer"><i class="ti ti-check"></i></button>
+    <!-- MÉTIERS -->
+    <div id="jt-metiers" class="scroll" style="display:none">
+      <div class="met-grid" id="met-grid"></div>
+    </div>
+    <!-- PRISE RAPIDE -->
+    <div id="jt-rapide" class="scroll" style="display:none">
+      <div style="padding:11px 16px 7px;font-size:13px;color:var(--txt2);line-height:1.5">Dictez ou tapez — zone, métier et assigné déduits automatiquement.</div>
+      <div class="qbox">
+        <div style="display:flex;gap:8px;align-items:flex-end">
+          <textarea class="qta" id="q-text" placeholder="Ex: capteur eau mât priorité haute Julien…"></textarea>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <button class="qb" id="q-mic" onclick="toggleVoice()" aria-label="Dicter"><i class="ti ti-microphone"></i></button>
+            <button class="qb send" onclick="parseQ()" aria-label="Analyser"><i class="ti ti-arrow-right"></i></button>
+          </div>
+        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--txt2);margin-bottom:5px">Métier :</div>
+        <div class="tag-row" id="q-met" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+        <div style="margin-top:8px;font-size:11px;color:var(--txt2);margin-bottom:5px">Zone :</div>
+        <div id="q-zone" style="display:flex;gap:5px;flex-wrap:wrap;max-height:72px;overflow-y:auto"></div>
+        <div id="q-prev" style="display:none;margin-top:8px;padding:8px 10px;background:var(--bg1);border-radius:9px;font-size:12px;color:var(--txt2);line-height:1.7"></div>
+      </div>
+      <div class="fab-row">
+        <button class="fab" id="q-ok" onclick="confirmQ()" style="opacity:.4;pointer-events:none" aria-label="Confirmer"><i class="ti ti-check"></i></button>
+      </div>
+    </div>
+  </div>
+  <!-- Colonne droite : détail tâche (desktop uniquement) -->
+  <div id="jobs-right">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 20px 11px;border-bottom:.5px solid var(--border);flex-shrink:0;min-height:49px">
+      <h1 id="td-panel-title" style="font-size:14px;font-weight:500;flex:1;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></h1>
+      <button id="td-panel-close" onclick="closeTdPanel()" class="ib" style="display:none" aria-label="Fermer panneau"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="scroll" id="td-panel-body" style="display:none;flex-direction:column;gap:14px;padding:0"></div>
+    <div id="td-panel-empty" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--txt3);gap:14px;padding:40px;text-align:center">
+      <i class="ti ti-layout-sidebar-right-expand" style="font-size:52px;opacity:.2"></i>
+      <span style="font-size:13px;line-height:1.6">Sélectionnez une tâche<br>dans la liste</span>
+      <span style="font-size:11px;color:var(--txt3);opacity:.7">N pour créer · Échap pour fermer</span>
     </div>
   </div>
 </div>
@@ -934,7 +976,7 @@ function rTasks(){
   let h='';ZONES.forEach(zone=>{const zt=byZ[zone];if(!zt?.length)return;
     h+=`<div class="zone-hd"><h2>${zone}</h2><span style="font-size:11px;color:var(--txt3)">${zt.length}</span></div><div class="tlist">`;
     zt.forEach(t=>{const u=contacts.find(c=>c.id===t.assignee);const od=t.deadline&&dd(t.deadline)<0&&t.statut!=='Fini';const dot=SS[t.statut]?.dot||'#aaa';
-      h+=`<div class="tc${od?' od':''}" onclick="openTD(${t.id})">
+      h+=`<div class="tc${od?' od':''}" data-tid="${t.id}" onclick="openTD(${t.id})">
         <div style="display:flex;gap:8px;align-items:flex-start"><div class="dot" style="background:${dot}"></div><div class="tname">${t.name}</div></div>
         <div class="tmeta">
           <span class="chip" style="background:${t.prio==='▲ Haute'?'#FCEBEB':'var(--bg1)'};color:${t.prio==='▲ Haute'?'#791F1F':'var(--txt2)'}">${t.prio}</span>
@@ -949,6 +991,11 @@ function rTasks(){
   });
   if(!h)h='<div style="padding:22px 16px;font-size:13px;color:var(--txt3);text-align:center">Aucune tâche dans ce filtre</div>';
   document.getElementById('task-list').innerHTML=h;
+  // Réappliquer le highlight sur la tâche sélectionnée en panel desktop
+  if(curTid&&window.innerWidth>=900){
+    const card=document.querySelector('.tc[data-tid="'+curTid+'"]');
+    if(card)card.classList.add('tc-active');
+  }
 }
 function rMetiers(){
   document.getElementById('met-grid').innerHTML=METIERS.map(m=>{
@@ -991,11 +1038,10 @@ function renderStatBtns(t) {
 }
 function openTD(id){
   const t=tasks.find(x=>x.id===id);if(!t)return;curTid=id;
-  document.getElementById('td-title').textContent=t.name;
   const u=contacts.find(c=>c.id===t.assignee);const d=t.deadline?dd(t.deadline):null;
   const dlt=t.deadline?d<0?`${fd(t.deadline)} — <span style="color:#E24B4A">${Math.abs(d)}j retard</span>`:d===0?`${fd(t.deadline)} — <span style="color:#BA7517">Aujourd'hui</span>`:`${fd(t.deadline)} — dans ${d}j`:'Non définie';
   const hist=(t.history||[]).slice().reverse();
-  document.getElementById('td-body').innerHTML=`
+  const bodyHtml=`
     <div class="ds">
       <h4>Statut</h4>
       <div class="sc-row" style="flex-wrap:wrap;gap:5px">${renderStatBtns(t)}</div>
@@ -1011,7 +1057,35 @@ function openTD(id){
     <div class="ds"><h4>Notes</h4><textarea class="note-ta" id="d-notes" placeholder="Notes de chantier…">${t.notes||''}</textarea><button onclick="svNote()" style="font-size:12px;padding:6px 13px;border-radius:9px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt);cursor:pointer;margin-top:6px;font-family:inherit"><i class="ti ti-check" aria-hidden="true"></i> Enregistrer</button></div>
     ${hist.length?`<div class="ds"><h4>Historique</h4><div style="display:flex;flex-direction:column;gap:7px">${hist.map(h=>{const ss=SS[h.to]||{};return`<div style="display:flex;align-items:flex-start;gap:9px;padding:8px 10px;background:var(--bg1);border-radius:10px"><div style="width:8px;height:8px;border-radius:50%;background:${ss.dot||'#aaa'};flex-shrink:0;margin-top:4px"></div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--txt)">${h.from} → ${h.to}</div>${h.note?`<div style="font-size:11px;color:var(--txt2);margin-top:2px">${h.note}</div>`:''}<div style="font-size:10px;color:var(--txt3);margin-top:2px">${h.by||'—'} · ${h.date||''}</div></div></div>`;}).join('')}</div></div>`:''}
     <div class="ds"><h4>Partager</h4><div style="display:flex;gap:7px"><button class="shr-btn" onclick="shrTask()"><i class="ti ti-share" aria-hidden="true"></i> Partager</button><button class="shr-btn" onclick="navigator.clipboard.writeText('nomade7.app/t/${id}').then(()=>alert('Lien copié'))"><i class="ti ti-link" aria-hidden="true"></i> Lien</button></div></div>
-  `;go('sc-td');
+  `;
+  if(window.innerWidth>=900){
+    // Mode desktop : panneau droit
+    document.getElementById('td-panel-title').textContent=t.name;
+    const panel=document.getElementById('td-panel-body');
+    panel.innerHTML=bodyHtml;
+    panel.style.display='flex';
+    document.getElementById('td-panel-empty').style.display='none';
+    document.getElementById('td-panel-close').style.display='flex';
+    panel.scrollTop=0;
+    // Highlight carte active
+    document.querySelectorAll('.tc').forEach(el=>el.classList.remove('tc-active'));
+    const card=document.querySelector('.tc[data-tid="'+id+'"]');
+    if(card){card.classList.add('tc-active');card.scrollIntoView({block:'nearest',behavior:'smooth'});}
+  } else {
+    // Mode mobile : écran dédié
+    document.getElementById('td-title').textContent=t.name;
+    document.getElementById('td-body').innerHTML=bodyHtml;
+    go('sc-td');
+  }
+}
+function closeTdPanel(){
+  document.getElementById('td-panel-body').innerHTML='';
+  document.getElementById('td-panel-body').style.display='none';
+  document.getElementById('td-panel-empty').style.display='flex';
+  document.getElementById('td-panel-close').style.display='none';
+  document.getElementById('td-panel-title').textContent='';
+  document.querySelectorAll('.tc').forEach(el=>el.classList.remove('tc-active'));
+  curTid=null;
 }
 function pushHistory(t, from, to, note) {
   if (!t.history) t.history = [];
@@ -1982,6 +2056,95 @@ async function sendPushToUser(userId, title, body, tag) {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
+
+// ── PHASE 3 — SWIPE MOBILE ────────────────────────────────────────────────
+(function initSwipe(){
+  const list=document.getElementById('task-list');
+  let tx=0,ty=0,swipeTid=null,swipeEl=null;
+  list.addEventListener('touchstart',e=>{
+    const tc=e.target.closest('.tc');if(!tc)return;
+    swipeEl=tc;swipeTid=parseInt(tc.dataset.tid);
+    tx=e.touches[0].clientX;ty=e.touches[0].clientY;
+    swipeEl.style.transition='none';
+  },{passive:true});
+  list.addEventListener('touchmove',e=>{
+    if(!swipeEl)return;
+    const dx=e.touches[0].clientX-tx,dy=e.touches[0].clientY-ty;
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>8){
+      e.preventDefault();
+      const capped=Math.max(-88,Math.min(0,dx));
+      swipeEl.style.transform=`translateX(${capped}px)`;
+    }
+  },{passive:false});
+  list.addEventListener('touchend',e=>{
+    if(!swipeEl)return;
+    const dx=e.changedTouches[0].clientX-tx;
+    swipeEl.style.transition='transform .2s';
+    swipeEl.style.transform='';
+    if(dx<-60&&swipeTid){
+      const t=tasks.find(x=>x.id===swipeTid);
+      if(t){
+        const allowed=allowedTransitions(t);
+        if(allowed.length){curTid=swipeTid;showSwipeMenu(t,allowed);}
+        else showToast('Aucune transition disponible');
+      }
+    }
+    swipeEl=null;swipeTid=null;
+  },{passive:true});
+})();
+
+function showSwipeMenu(t,allowed){
+  document.getElementById('m-swipe-menu')?.remove();
+  const m=document.createElement('div');
+  m.id='m-swipe-menu';m.className='ov';m.style.zIndex='5000';
+  const ss=SS[t.statut]||{};
+  m.innerHTML=`<div class="sh" style="max-width:380px;padding:20px 20px 26px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <div class="dot" style="background:${ss.dot||'#aaa'};width:10px;height:10px;margin-top:0;flex-shrink:0"></div>
+      <div style="font-size:14px;font-weight:600;color:var(--txt);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.name}</div>
+    </div>
+    <div style="font-size:11px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Changer le statut</div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      ${allowed.map(s=>{const sx=SS[s]||{};return`<button onclick="chSwipeStat('${s}')" style="padding:11px 16px;border-radius:10px;background:${sx.bg};color:${sx.c};border:.5px solid ${sx.bd};font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;text-align:left">${s}</button>`;}).join('')}
+    </div>
+    <button onclick="document.getElementById('m-swipe-menu').remove()" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:.5px solid var(--border2);background:var(--bg0);color:var(--txt2);font-size:13px;cursor:pointer;font-family:inherit">Annuler</button>
+  </div>`;
+  document.body.appendChild(m);
+  m.addEventListener('click',e=>{if(e.target===m)m.remove();});
+}
+function chSwipeStat(s){
+  document.getElementById('m-swipe-menu')?.remove();
+  chStat(s);
+}
+
+// ── PHASE 3 — RACCOURCIS CLAVIER ─────────────────────────────────────────
+document.addEventListener('keydown',e=>{
+  // Ignorer si focus dans un champ de saisie
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  const sc=document.querySelector('.screen.active')?.id;
+  if(e.key==='Escape'){
+    // Fermer modale ouverte (ordre de priorité)
+    const modals=['m-swipe-menu','m-refuse','m-mode-picker','m-avancement','m-projet','m-task','m-event'];
+    for(const mid of modals){
+      const m=document.getElementById(mid);
+      if(m&&m.style.display!=='none'&&m.style.display!==''){closeModal(mid);return;}
+    }
+    // Fermer le panneau desktop si ouvert
+    if(window.innerWidth>=900&&curTid){closeTdPanel();return;}
+    // Retour arrière mobile
+    if(sc==='sc-td'){go('sc-jobs');return;}
+    if(sc==='sc-pj-detail'){go('sc-projets');return;}
+    if(sc==='sc-ed'){go('sc-emails');return;}
+    if(sc==='sc-rp'){go('sc-reu');return;}
+    if(sc==='sc-ep'){go('sc-emails');return;}
+    if(sc==='sc-settings'){go('sc-jobs');return;}
+    return;
+  }
+  // Raccourcis Job list (admin / resp uniquement)
+  if(sc==='sc-jobs'&&(curRole==='admin'||curRole==='resp')){
+    if(e.key==='n'||e.key==='N'){e.preventDefault();openFab();return;}
+  }
+});
 </script>
 
 <!-- ÉCRAN AUTH -->
